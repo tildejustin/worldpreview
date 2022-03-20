@@ -33,8 +33,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.awt.*;
 import java.util.Iterator;
 
-//@Mixin(LevelLoadingScreen.class)
-public abstract class LevelLoadingScreenMixin extends Screen {
+@Mixin(LoadingScreenRenderer.class)
+public abstract class LoadingScreenRendererMixin {
 //    private boolean worldpreview_showMenu;
 //    private BackgroundRenderer backgroundRenderer;
 //    protected LevelLoadingScreenMixin(Text title) {
