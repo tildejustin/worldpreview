@@ -5,11 +5,12 @@ import me.voidxwalker.worldpreview.mixin.access.ClientChunkProviderMixin;
 import me.voidxwalker.worldpreview.mixin.access.ServerChunkProviderMixin;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayNetworkHandler;
-import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.world.ClientWorld;
+import net.minecraft.entity.player.ClientPlayerEntity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.PlayerManager;
 import net.minecraft.server.ServerNetworkIo;
+import net.minecraft.server.integrated.IntegratedServer;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.collection.LongObjectStorage;
 import net.minecraft.util.math.BlockPos;
@@ -17,6 +18,7 @@ import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.snooper.Snooper;
 import net.minecraft.world.Difficulty;
+import net.minecraft.world.World;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.ServerChunkProvider;
 import net.minecraft.world.level.LevelInfo;
@@ -24,9 +26,7 @@ import org.apache.logging.log4j.Logger;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.*;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.Iterator;
@@ -56,35 +56,43 @@ public abstract class MinecraftServerMixin {//  extends ReentrantThreadExecutor<
 
     @Shadow private Thread serverThread;
 
+    @Shadow public abstract World getWorld();
+
+    @Shadow protected abstract void logProgress(String progressType, int worldProgress);
+
     @Redirect(method = "prepareWorlds",at = @At(value = "INVOKE",target = "Lnet/minecraft/world/chunk/ServerChunkProvider;getOrGenerateChunk(II)Lnet/minecraft/world/chunk/Chunk;"))
     public Chunk getChunks(ServerChunkProvider instance, int x, int z){
-
+        Chunk ret = instance.getOrGenerateChunk(x,z);
         synchronized (WorldPreview.lock){
-            if(WorldPreview.player!=null&& WorldPreview.calculatedSpawn&& !WorldPreview.freezePreview){
+            if(WorldPreview.player!=null && !WorldPreview.freezePreview && WorldPreview.inPreview){
                 LongObjectStorage<Chunk> chunkStorage=((ClientChunkProviderMixin) WorldPreview.clientWorld.getChunkProvider()).getChunkStorage();
                 List<Chunk> chunks=((ClientChunkProviderMixin) WorldPreview.clientWorld.getChunkProvider()).getChunks();
-
                 Iterator<Chunk> iterator =  ((ServerChunkProviderMixin)instance).getChunks().iterator();
+                BlockPos spawnPos = WorldPreview.spawnPos;
+                int spawnChunkX = spawnPos.getX() >> 4;
+                int spawnChunkZ = spawnPos.getZ() >> 4;
                 while (iterator.hasNext()){
                     Chunk chunk = iterator.next();
                     long id = ChunkPos.getIdFromCoords(chunk.chunkX, chunk.chunkZ);
-                    if(chunkStorage.get(id)==null){
+                    if(chunkStorage.get(id)==null && chunk.isTerrainPopulated()){
                         chunkStorage.set(ChunkPos.getIdFromCoords(chunk.chunkX, chunk.chunkZ), chunk);
                         chunks.add(chunk);
-
+                        chunk.setChunkLoaded(true);
+                        if (spawnChunkX + 1 == chunk.chunkX && spawnChunkZ == chunk.chunkZ && !WorldPreview.loadedSpawn) {
+                            worldpreview_calculateSpawn((ServerWorld) getWorld());
+                            WorldPreview.loadedSpawn = true;
+                        }
                     }
-
                 }
-
             }
         }
-        return instance.getOrGenerateChunk(x,z);
+        return ret;
     }
+
     @Inject(method = "prepareWorlds", at = @At(value = "HEAD"))
     public void worldpreview_getWorld(CallbackInfo ci){
         synchronized (WorldPreview.lock){
             if(!WorldPreview.existingWorld){
-
                 ServerWorld serverWorld = this.getWorld(0);
                 WorldPreview.spawnPos= serverWorld.getSpawnPos();
                 WorldPreview.freezePreview=false;
@@ -93,11 +101,7 @@ public abstract class MinecraftServerMixin {//  extends ReentrantThreadExecutor<
                 WorldPreview.clientWorld = new ClientWorld(null, properties, 0, Difficulty.NORMAL , MinecraftClient.getInstance().profiler);
                 ClientPlayNetworkHandler networkHandler = new ClientPlayNetworkHandler(MinecraftClient.getInstance(), null, null, MinecraftClient.getInstance().getSession().getProfile());
                 WorldPreview.player = new ClientPlayerEntity(MinecraftClient.getInstance(), WorldPreview.clientWorld, networkHandler,null);
-                worldpreview_calculateSpawn(serverWorld);
-                WorldPreview.calculatedSpawn=true;
-
             }
-            WorldPreview.existingWorld=false;
         }
     }
 
@@ -122,30 +126,61 @@ public abstract class MinecraftServerMixin {//  extends ReentrantThreadExecutor<
         }
     }
 
+    /**
+     * This inject will not run as a direct result of WorldPreview code, but we keep it here just in case other mods do
+     * stop the server mid-preview.
+     */
     @Inject(method = "stopServer", at=@At(value = "HEAD"), cancellable = true)
     public void kill(CallbackInfo ci) {
-        if (!this.isLoading() && Thread.currentThread().equals(this.serverThread)) {
+        if (!this.isLoading() && Thread.currentThread().equals(this.serverThread)) { //isLoading() should really be called isDoneLoading()
             worldpreview_shutdownWithoutSave();
+            ci.cancel();
+        }
+        WorldPreview.kill = 0;
+    }
+
+    @Inject(method = "prepareWorlds",at=@At(value = "INVOKE",target = "Lnet/minecraft/server/MinecraftServer;getTimeMillis()J", shift = At.Shift.AFTER), cancellable = true)
+    public void kill2(CallbackInfo ci){
+        if(WorldPreview.kill==1){
             ci.cancel();
         }
     }
 
     @Inject(method="run",at=@At(value="INVOKE",target="Lnet/minecraft/server/MinecraftServer;setupServer()Z",shift = At.Shift.AFTER), cancellable = true)
-    public void kill2(CallbackInfo ci){
-        WorldPreview.inPreview=false;
-        if(WorldPreview.kill==1){
-            ci.cancel();
-        }
-    }
-
-    @Inject(method = "prepareWorlds",at=@At(value = "INVOKE",target = "Lnet/minecraft/server/MinecraftServer;getTimeMillis()J", shift = At.Shift.AFTER), cancellable = true)
     public void kill3(CallbackInfo ci){
         if(WorldPreview.kill==1){
+            worldpreview_shutdownWithoutSave();
             ci.cancel();
         }
     }
 
+    @Inject(method = "run",at=@At(value = "INVOKE",target = "Lnet/minecraft/server/MinecraftServer;getTimeMillis()J", ordinal = 1, shift = At.Shift.AFTER), cancellable = true)
+    public void kill4(CallbackInfo ci){
+        if(WorldPreview.kill==1){
+            worldpreview_shutdownWithoutSave();
+            ci.cancel();
+        }
+    }
+
+    @ModifyConstant(method = "prepareWorlds", constant = @Constant(longValue = 1000L))
+    private long changeLogInterval(long constant) {
+        return WorldPreview.worldGenLogInterval;
+    }
+
+    @Redirect(method = "prepareWorlds", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/MinecraftServer;logProgress(Ljava/lang/String;I)V"))
+    private void freezeIfAtPercentage(MinecraftServer instance, String progressType, int worldProgress) {
+        if (worldProgress >= WorldPreview.worldGenFreezePercentage && !WorldPreview.freezePreview) {
+            WorldPreview.log("Preview at " + worldProgress + "%, " + "freezing automatically.");
+            WorldPreview.freezePreview = true;
+        }
+        this.logProgress(progressType, worldProgress);
+    }
+
+    /**
+     * Identical to stopServer() except without saving player data.
+     */
     public void worldpreview_shutdownWithoutSave() {
+        WorldPreview.kill = 0;
         if (!this.shouldResetWorld) {
             LOGGER.info("Stopping server");
             if (this.getNetworkIo() != null) {
@@ -162,5 +197,6 @@ public abstract class MinecraftServerMixin {//  extends ReentrantThreadExecutor<
                 this.snooper.concel();
             }
         }
+        WorldPreview.inPreview=false;
     }
 }

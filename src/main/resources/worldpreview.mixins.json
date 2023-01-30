@@ -5,17 +5,18 @@
   "compatibilityLevel": "JAVA_8",
   "client": [
     "access.WorldRendererMixin",
-    "client.render.WorldRendererMixin",
-    "client.render.LoadingScreenRendererMixin",
-
-    "client.MinecraftClientMixin",
-    "client.GameOptionsMixin",
-
-    "server.MinecraftServerMixin",
-    "server.ServerPlayerEntityMixin",
+    "access.MinecraftClientMixin",
     "access.GameRendererMixin",
     "access.ClientChunkProviderMixin",
-    "access.ServerChunkProviderMixin"
+    "access.ServerChunkProviderMixin",
+    "access.BuiltChunkStorageMixin",
+    "client.render.WorldRendererMixin",
+    "client.render.LoadingScreenRendererMixin",
+    "client.MinecraftClientMixin",
+    "client.GameOptionsMixin",
+    "client.GameMenuScreenMixin",
+    "server.MinecraftServerMixin",
+    "server.ServerPlayerEntityMixin"
   ],
   "injectors": {
     "defaultRequire": 1

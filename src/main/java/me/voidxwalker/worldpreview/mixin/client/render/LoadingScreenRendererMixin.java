@@ -1,23 +1,24 @@
 package me.voidxwalker.worldpreview.mixin.client.render;
 
 import com.mojang.blaze3d.platform.GlStateManager;
-import me.voidxwalker.worldpreview.ChunkSetter;
+import me.voidxwalker.worldpreview.PreviewRenderer;
 import me.voidxwalker.worldpreview.WorldPreview;
 
+import me.voidxwalker.worldpreview.mixin.access.MinecraftClientMixin;
 import me.voidxwalker.worldpreview.mixin.access.WorldRendererMixin;
 import net.minecraft.block.Block;
+import net.minecraft.block.Blocks;
+import net.minecraft.block.material.Material;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.class_321;
+import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gl.Framebuffer;
+import net.minecraft.client.gui.DrawableHelper;
+import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.options.KeyBinding;
-import net.minecraft.client.render.GuiLighting;
-import net.minecraft.client.render.LoadingScreenRenderer;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.WorldRenderer;
-import net.minecraft.client.render.debug.CameraView;
-import net.minecraft.client.render.debug.StructureDebugRenderer;
+import net.minecraft.client.render.*;
+import net.minecraft.client.resource.language.I18n;
+import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.client.texture.SpriteAtlasTexture;
-import net.minecraft.client.util.Clipper;
 import net.minecraft.client.util.GlAllocationUtils;
 import net.minecraft.client.util.Window;
 import net.minecraft.entity.Entity;
@@ -25,11 +26,14 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.boss.BossBar;
 import net.minecraft.entity.effect.StatusEffect;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.hit.HitResult;
+import net.minecraft.util.Identifier;
+import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
+import org.lwjgl.input.Mouse;
+import org.lwjgl.opengl.Display;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GLContext;
 import org.lwjgl.util.glu.Project;
@@ -41,159 +45,246 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.nio.FloatBuffer;
+import java.util.ArrayList;
 
 @Mixin(LoadingScreenRenderer.class)
 public abstract class LoadingScreenRendererMixin {
-    @Shadow private MinecraftClient field_1029;
-
-    @Shadow private long field_1031;
-
-    @Shadow private String field_1030;
+    @Shadow private MinecraftClient client;
+    
+    private long lastRenderTime;
+    private long lastInputPollTime;
 
     @Shadow private String field_1028;
 
-    @Shadow private boolean field_1032;
+    @Shadow private Window window;
+    @Shadow private String title;
+    private int frameCount = 0;
 
-    @Shadow private Framebuffer field_7696;
+    private long nanoTime = 0;
 
-
+    private ButtonWidget resetButton;
+    private ArrayList<ButtonWidget> buttons = new ArrayList<ButtonWidget>();
 
     /**
-     * @author
+     * @author Pixfumy
+     * @reason This method is absolutely unrecognizable with all the changes. Any other mod targeting this method should know about this.
      */
     @Overwrite
-    public void progressStagePercentage(int percentage) {
-
+    public void setProgressPercentage(int percentage) {
         if(WorldPreview.worldRenderer==null){
-
             WorldPreview.worldRenderer=new WorldRenderer(MinecraftClient.getInstance());
-            ((ChunkSetter)WorldPreview.worldRenderer).setPreviewRenderer();
+            ((PreviewRenderer)WorldPreview.worldRenderer).setPreviewRenderer();
         }
         long l = MinecraftClient.getTime();
-        if (l - this.field_1031 >= 100L) {
-            Window window = new Window(this.field_1029);
-            int i = window.getScaleFactor();
-            int j = window.getWidth();
-            int k = window.getHeight();
-            if (WorldPreview.world != null && WorldPreview.clientWorld != null && WorldPreview.player != null && !WorldPreview.freezePreview) {
-                if (((WorldRendererMixin) WorldPreview.worldRenderer).getWorld() == null && WorldPreview.calculatedSpawn) {
-                    WorldPreview.worldRenderer.method_1371(WorldPreview.clientWorld);
-                }
-                if (((WorldRendererMixin) WorldPreview.worldRenderer).getWorld() != null) {
-                    //this.renderBackground();
-                    this.field_1842 = this.field_1843;
-                    float h = WorldPreview.world.getBrightness(new BlockPos(WorldPreview.player));
-                    float x = (float) this.field_1029.options.viewDistance / 32.0F;
-                    float y = h * (1.0F - x) + x;
-                    this.field_1843 += (y - this.field_1843) * 0.1F;
-                    this.lastSkyDarkness = this.skyDarkness;
-                    if (BossBar.darkenSky) {
-                        this.skyDarkness += 0.05F;
-                        if (this.skyDarkness > 1.0F) {
-                            this.skyDarkness = 1.0F;
-                        }
-                        BossBar.darkenSky = false;
-                    } else if (this.skyDarkness > 0.0F) {
-                        this.skyDarkness -= 0.0125F;
+        Window window = this.window;
+        int width = window.getWidth();
+        int height = window.getHeight();
+        int mouseX = Mouse.getX() * width / this.client.width;
+        int mouseY = height - Mouse.getY() * height / this.client.height - 1;
+        if ((!WorldPreview.inPreview || Display.wasResized()) && !WorldPreview.existingWorld) {
+            WorldPreview.inPreview = true;
+            worldpreview_setButtons(width, height);
+        }
+        if (((WorldRendererMixin) WorldPreview.worldRenderer).getWorld() != null) {
+            int buttonHeight = 20;
+            boolean resetHovered = this.resetButton != null && mouseX >= this.resetButton.x && mouseY >= this.resetButton.y && mouseX < this.resetButton.x + this.resetButton.getWidth() && mouseY < this.resetButton.y + buttonHeight;
+            if (resetHovered && Mouse.isButtonDown(0)) {
+                WorldPreview.kill = 1;
+                return;
+            }
+        }
+        if (WorldPreview.world != null && WorldPreview.clientWorld != null && WorldPreview.player != null && WorldPreview.inPreview && WorldPreview.loadedSpawn) {
+            // render the world
+            if (((WorldRendererMixin) WorldPreview.worldRenderer).getWorld() == null) {
+                WorldPreview.worldRenderer.setWorld(WorldPreview.clientWorld);
+                WorldPreview.log("Starting preview.");
+                frameCount = 0;
+                WorldPreview.canFreeze = true;
+            }
+            if (((WorldRendererMixin) WorldPreview.worldRenderer).getWorld() != null && l - this.lastRenderTime >= 1000L / WorldPreview.loadingScreenFPS) {
+                this.field_1842 = this.field_1843;
+                float h = WorldPreview.world.getBrightness(new BlockPos(WorldPreview.player));
+                float x = (float) this.client.options.viewDistance / 32.0F;
+                float y = h * (1.0F - x) + x;
+                this.field_1843 += (y - this.field_1843) * 0.1F;
+                this.lastSkyDarkness = this.skyDarkness;
+                if (BossBar.darkenSky) {
+                    this.skyDarkness += 0.05F;
+                    if (this.skyDarkness > 1.0F) {
+                        this.skyDarkness = 1.0F;
                     }
-                    renderWorld2(0.5F,(1000000000 / 60 / 4));
-                    this.field_1029.updateDisplay();
-
+                    BossBar.darkenSky = false;
+                } else if (this.skyDarkness > 0.0F) {
+                    this.skyDarkness -= 0.0125F;
+                }
+                int p = this.client.options.maxFramerate;
+                int q = Math.min(10, p);
+                q = Math.max(q, 60);
+                long r = System.nanoTime() - nanoTime;
+                long s = Math.max((long) (1000000000 / q / 4) - r, 0L);
+                this.worldpreview_renderWorld(((MinecraftClientMixin) this.client).getTicker().tickDelta, System.nanoTime() + s);
+                GlStateManager.matrixMode(5889);
+                GlStateManager.loadIdentity();
+                GlStateManager.ortho(0.0D, window.getScaledWidth(), window.getScaledHeight(), 0.0D, 100.0D, 300.0D);
+                GlStateManager.matrixMode(5888);
+                GlStateManager.loadIdentity();
+                GlStateManager.translatef(0.0F, 0.0F, -200.0F);
+                GlStateManager.clear(256);
+                this.worldpreview_renderCenteredString(this.client.textRenderer, I18n.translate("menu.game"), width / 2, 40, 16777215);
+                this.worldpreview_renderMenuButtons(width, height, mouseX, mouseY);
+            }
+        } else { // usual loading screen
+            if (l - this.lastRenderTime >= 1000L / WorldPreview.loadingScreenFPS) {
+                GlStateManager.matrixMode(5889);
+                GlStateManager.loadIdentity();
+                GlStateManager.ortho(0.0D, window.getScaledWidth(), window.getScaledHeight(), 0.0D, 100.0D, 300.0D);
+                GlStateManager.matrixMode(5888);
+                GlStateManager.loadIdentity();
+                GlStateManager.translatef(0.0F, 0.0F, -200.0F);
+                Tessellator tessellator = Tessellator.getInstance();
+                BufferBuilder bufferBuilder = tessellator.getBuffer();
+                this.client.getTextureManager().bindTexture(DrawableHelper.OPTIONS_BACKGROUND_TEXTURE);
+                float f = 32.0F;
+                bufferBuilder.begin(7, VertexFormats.POSITION_TEXTURE_COLOR);
+                bufferBuilder.vertex(0.0D, (double) height, 0.0D).texture(0.0D, (double) ((float) height / f)).color(64, 64, 64, 255).next();
+                bufferBuilder.vertex((double) width, (double) height, 0.0D).texture((double) ((float) width / f), (double) ((float) height / f)).color(64, 64, 64, 255).next();
+                bufferBuilder.vertex((double) width, 0.0D, 0.0D).texture((double) ((float) width / f), 0.0D).color(64, 64, 64, 255).next();
+                bufferBuilder.vertex(0.0D, 0.0D, 0.0D).texture(0.0D, 0.0D).color(64, 64, 64, 255).next();
+                tessellator.draw();
+                if (percentage >= 0) {
+                    int m = 100;
+                    int n = 2;
+                    int o = width / 2 - m / 2;
+                    int p = width / 2 + 16;
+                    GlStateManager.disableTexture();
+                    bufferBuilder.begin(7, VertexFormats.POSITION_COLOR);
+                    bufferBuilder.vertex((double) o, (double) p, 0.0D).color(128, 128, 128, 255).next();
+                    bufferBuilder.vertex((double) o, (double) (p + n), 0.0D).color(128, 128, 128, 255).next();
+                    bufferBuilder.vertex((double) (o + m), (double) (p + n), 0.0D).color(128, 128, 128, 255).next();
+                    bufferBuilder.vertex((double) (o + m), (double) p, 0.0D).color(128, 128, 128, 255).next();
+                    bufferBuilder.vertex((double) o, (double) p, 0.0D).color(128, 255, 128, 255).next();
+                    bufferBuilder.vertex((double) o, (double) (p + n), 0.0D).color(128, 255, 128, 255).next();
+                    bufferBuilder.vertex((double) (o + percentage), (double) (p + n), 0.0D).color(128, 255, 128, 255).next();
+                    bufferBuilder.vertex((double) (o + percentage), (double) p, 0.0D).color(128, 255, 128, 255).next();
+                    tessellator.draw();
+                    GlStateManager.enableTexture();
                 }
             }
         }
+        if (l - this.lastRenderTime >= 1000L / WorldPreview.loadingScreenFPS) {
+            this.lastRenderTime = l;
+            GlStateManager.enableBlend();
+            GlStateManager.blendFuncSeparate(770, 771, 1, 0);
+            this.client.textRenderer.drawWithShadow(this.title, (float) ((width - this.client.textRenderer.getStringWidth(this.title)) / 2), (float) (height / 2 - 4 - 16), 16777215);
+            this.client.textRenderer.drawWithShadow(this.field_1028, (float) ((width - this.client.textRenderer.getStringWidth(this.field_1028)) / 2), (float) (height / 2 - 4 + 8), 16777215);
+            this.client.updateDisplay();
+        } else if (l - this.lastInputPollTime >= 1000L / WorldPreview.loadingScreenPollingRate){
+            this.lastInputPollTime = l;
+            Display.processMessages(); //updateDisplay() calls Display.processMessages() anyway, so no need to run both in one render.
+        }
+        this.nanoTime = System.nanoTime();
+        try {
+            Thread.yield();
+        } catch (Exception var15) {
+        }
     }
 
+    private void worldpreview_setButtons(int width, int height) {
+        buttons.add(this.resetButton = new ButtonWidget(1, width / 2 - 100, height / 4 + 120 - 16, I18n.translate("menu.returnToMenu")));
+        buttons.add(new ButtonWidget(4, width / 2 - 100, height / 4 + 24 - 16, I18n.translate("menu.returnToGame")));
+        buttons.add(new ButtonWidget(0, width / 2 - 100, height / 4 + 96 - 16, 98, 20, I18n.translate("menu.options")));
+        buttons.add(new ButtonWidget(7, width / 2 + 2, height / 4 + 96 - 16, 98, 20, I18n.translate("menu.shareToLan")));
+        buttons.add(new ButtonWidget(5, width / 2 - 100, height / 4 + 48 - 16, 98, 20, I18n.translate("gui.achievements")));
+        buttons.add(new ButtonWidget(6, width / 2 + 2, height / 4 + 48 - 16, 98, 20, I18n.translate("gui.stats")));
+    }
 
-    public void renderWorld2(float tickDelta, long endTime) {
+    public void worldpreview_renderWorld(float tickDelta, long endTime) {
         GlStateManager.enableDepthTest();
         GlStateManager.enableAlphaTest();
         GlStateManager.alphaFunc(516, 0.5F);
-        this.renderCenter(tickDelta, endTime);
-
+        this.worldpreview_renderCenter(tickDelta, endTime);
     }
-    private void renderCenter(float tickDelta, long endTime) {
+
+    private void worldpreview_renderCenter(float tickDelta, long endTime) {
         WorldRenderer worldRenderer =  WorldPreview.worldRenderer;
-        ( (ChunkSetter)worldRenderer).setPreviewRenderer();
+        ( (PreviewRenderer)worldRenderer).setPreviewRenderer();
         GlStateManager.enableCull();
 
-        this.field_1029.profiler.swap("clear");
-        GlStateManager.viewPort(0, 0, this.field_1029.width, this.field_1029.height);
-        updateFog(tickDelta);
+        this.client.profiler.swap("clear");
+        GlStateManager.viewPort(0, 0, this.client.width, this.client.height);
+        worldpreview_updateFog(tickDelta);
         GlStateManager.clear(16640);
-        this.field_1029.profiler.swap("camera");
-        setupCamera(tickDelta, 2);
-        class_321.method_804((PlayerEntity) WorldPreview.player, this.field_1029.options.perspective == 2);
-        Clipper.getInstance();
-        this.field_1029.profiler.swap("culling");
-        CameraView cameraView = new StructureDebugRenderer();
+        this.client.profiler.swap("camera");
+        worldpreview_setupCamera(tickDelta, 2);
+        Camera.update(WorldPreview.player, this.client.options.perspective == 2);
+        this.client.profiler.swap("frustum");
+        Frustum.getInstance();
+        this.client.profiler.swap("culling");
+        CullingCameraView cameraView = new CullingCameraView();
         Entity entity = WorldPreview.player;
         double d = entity.prevTickX + (entity.x - entity.prevTickX) * (double)tickDelta;
         double e = entity.prevTickY + (entity.y - entity.prevTickY) * (double)tickDelta;
         double f = entity.prevTickZ + (entity.z - entity.prevTickZ) * (double)tickDelta;
         cameraView.setPos(d, e, f);
-        if (this.field_1029.options.viewDistance >= 4) {
-            renderFog(-1, tickDelta);
-            this.field_1029.profiler.swap("sky");
+        if (this.client.options.viewDistance >= 4) {
+            worldpreview_renderFog(-1, tickDelta);
+            this.client.profiler.swap("sky");
             GlStateManager.matrixMode(5889);
             GlStateManager.loadIdentity();
-            Project.gluPerspective((float)  90.0F, (float)this.field_1029.width / (float)this.field_1029.height, 0.05F, (float)(this.field_1029.options.viewDistance * 16) * 2.0F);
+            Project.gluPerspective((float)  90.0F, (float)this.client.width / (float)this.client.height, 0.05F, (float)(this.client.options.viewDistance * 16) * 2.0F);
             GlStateManager.matrixMode(5888);
-            worldRenderer.method_9891(tickDelta, 2);
+            worldRenderer.renderSky(tickDelta, 2);
             GlStateManager.matrixMode(5889);
             GlStateManager.loadIdentity();
-            Project.gluPerspective((float)  90.0F, (float)this.field_1029.width / (float)this.field_1029.height, 0.05F, (float)(this.field_1029.options.viewDistance * 16)* MathHelper.SQUARE_ROOT_OF_TWO);
+            Project.gluPerspective((float)  90.0F, (float)this.client.width / (float)this.client.height, 0.05F, (float)(this.client.options.viewDistance * 16)* MathHelper.SQUARE_ROOT_OF_TWO);
             GlStateManager.matrixMode(5888);
         }
 
-        renderFog(0, tickDelta);
+        worldpreview_renderFog(0, tickDelta);
         GlStateManager.shadeModel(7425);
         if (entity.y + (double)entity.getEyeHeight() < 128.0D) {
             renderClouds(worldRenderer, tickDelta, 2);
         }
 
-        this.field_1029.profiler.swap("prepareterrain");
-        renderFog(0, tickDelta);
-        this.field_1029.getTextureManager().bindTexture(SpriteAtlasTexture.BLOCK_ATLAS_TEX);
-        GuiLighting.disable();
-        this.field_1029.profiler.swap("terrain_setup");
-        worldRenderer.method_9906(entity, (double)tickDelta, cameraView,100, false);
-        this.field_1029.profiler.swap("updatechunks");
-        worldRenderer.method_9892(endTime);
-
-        this.field_1029.profiler.swap("terrain");
+        this.client.profiler.swap("prepareterrain");
+        worldpreview_renderFog(0, tickDelta);
+        this.client.getTextureManager().bindTexture(SpriteAtlasTexture.BLOCK_ATLAS_TEX);
+        DiffuseLighting.disable();
+        this.client.profiler.swap("terrain_setup");
+        worldRenderer.setupTerrain(entity, (double)tickDelta, cameraView, frameCount++, true);
+        this.client.profiler.swap("updatechunks");
+        if (!WorldPreview.freezePreview) {
+            worldRenderer.updateChunks(endTime);
+        }
+        this.client.profiler.swap("terrain");
         GlStateManager.matrixMode(5888);
         GlStateManager.pushMatrix();
         GlStateManager.disableAlphaTest();
-        worldRenderer.method_9894(RenderLayer.SOLID, (double)tickDelta, 2, entity);
+        worldRenderer.renderLayer(RenderLayer.SOLID, (double)tickDelta, 2, entity);
         GlStateManager.enableAlphaTest();
-        worldRenderer.method_9894(RenderLayer.CUTOUT_MIPPED, (double)tickDelta, 2, entity);
-        this.field_1029.getTextureManager().getTexture(SpriteAtlasTexture.BLOCK_ATLAS_TEX).pushFilter(false, false);
-        worldRenderer.method_9894(RenderLayer.CUTOUT, (double)tickDelta, 2, entity);
-        this.field_1029.getTextureManager().getTexture(SpriteAtlasTexture.BLOCK_ATLAS_TEX).pop();
+        worldRenderer.renderLayer(RenderLayer.CUTOUT_MIPPED, (double)tickDelta, 2, entity);
+        this.client.getTextureManager().getTexture(SpriteAtlasTexture.BLOCK_ATLAS_TEX).pushFilter(false, false);
+        worldRenderer.renderLayer(RenderLayer.CUTOUT, (double)tickDelta, 2, entity);
+        this.client.getTextureManager().getTexture(SpriteAtlasTexture.BLOCK_ATLAS_TEX).pop();
         GlStateManager.shadeModel(7424);
         GlStateManager.alphaFunc(516, 0.1F);
         GlStateManager.matrixMode(5888);
         GlStateManager.popMatrix();
 
 
-        this.field_1029.profiler.swap("translucent");
-        worldRenderer.method_9894(RenderLayer.TRANSLUCENT, tickDelta, 2, entity);
+        this.client.profiler.swap("translucent");
+        worldRenderer.renderLayer(RenderLayer.TRANSLUCENT, tickDelta, 2, entity);
         GlStateManager.shadeModel(7424);
         GlStateManager.depthMask(true);
         GlStateManager.enableCull();
         GlStateManager.disableBlend();
         GlStateManager.disableFog();
-
-
-
-
-
     }
-    private void updateFog(float tickDelta) {
+
+    private void worldpreview_updateFog(float tickDelta) {
         World world =WorldPreview.clientWorld;
         Entity entity = WorldPreview.player;
-        float f = 0.25F + 0.75F * (float)this.field_1029.options.viewDistance / 32.0F;
+        float f = 0.25F + 0.75F * (float)this.client.options.viewDistance / 32.0F;
         f = 1.0F - (float)Math.pow((double)f, 0.25D);
         Vec3d vec3d = world.method_3631(WorldPreview.player, tickDelta);
         float g = (float)vec3d.x;
@@ -204,7 +295,7 @@ public abstract class LoadingScreenRendererMixin {
         this.fogGreen = (float)vec3d2.y;
         this.fogBlue = (float)vec3d2.z;
         float p;
-        if (this.field_1029.options.viewDistance >= 4) {
+        if (this.client.options.viewDistance >= 4) {
             double d = -1.0D;
             Vec3d vec3d3 = MathHelper.sin(world.getSkyAngleRadians(tickDelta)) > 0.0F ? new Vec3d(d, 0.0D, 0.0D) : new Vec3d(1.0D, 0.0D, 0.0D);
             p = (float)entity.getRotationVector(tickDelta).dotProduct(vec3d3);
@@ -245,7 +336,16 @@ public abstract class LoadingScreenRendererMixin {
             this.fogBlue *= o;
         }
 
-        Block block = class_321.method_9371(WorldPreview.clientWorld, entity, tickDelta);
+        Block block = Camera.getSubmergedBlock(WorldPreview.clientWorld, entity, tickDelta);
+        if (block.getMaterial() == Material.WATER) {
+            this.fogRed = 0.02F;
+            this.fogGreen = 0.02F;
+            this.fogBlue = 0.2F;
+        } else if (block.getMaterial() == Material.LAVA) {
+            this.fogRed = 0.6F;
+            this.fogGreen = 0.1F;
+            this.fogBlue = 0.0F;
+        }
 
 
         p = this.field_1842 + (this.field_1843 - this.field_1842) * tickDelta;
@@ -253,14 +353,6 @@ public abstract class LoadingScreenRendererMixin {
         this.fogGreen *= p;
         this.fogBlue *= p;
         double e = (entity.prevTickY + (entity.y - entity.prevTickY) * (double)tickDelta) * world.dimension.method_3994();
-        if (entity instanceof LivingEntity && ((LivingEntity)entity).hasStatusEffect(StatusEffect.BLINDNESS)) {
-            int r = ((LivingEntity)entity).getEffectInstance(StatusEffect.BLINDNESS).getDuration();
-            if (r < 20) {
-                e *= (double)(1.0F - (float)r / 20.0F);
-            } else {
-                e = 0.0D;
-            }
-        }
 
         if (e < 1.0D) {
             if (e < 0.0D) {
@@ -281,21 +373,9 @@ public abstract class LoadingScreenRendererMixin {
             this.fogBlue = this.fogBlue * (1.0F - t) + this.fogBlue * 0.6F * t;
         }
 
-        float u;
-
-
-        if (this.field_1029.options.anaglyph3d) {
-            t = (this.fogRed * 30.0F + this.fogGreen * 59.0F + this.fogBlue * 11.0F) / 100.0F;
-            u = (this.fogRed * 30.0F + this.fogGreen * 70.0F) / 100.0F;
-            float x = (this.fogRed * 30.0F + this.fogBlue * 70.0F) / 100.0F;
-            this.fogRed = t;
-            this.fogGreen = u;
-            this.fogBlue = x;
-        }
-
         GlStateManager.clearColor(this.fogRed, this.fogGreen, this.fogBlue, 0.0F);
     }
-    private void setupCamera(float tickDelta, int anaglyphFilter) {
+    private void worldpreview_setupCamera(float tickDelta, int anaglyphFilter) {
 
         GlStateManager.matrixMode(5889);
         GlStateManager.loadIdentity();
@@ -304,7 +384,7 @@ public abstract class LoadingScreenRendererMixin {
 
 
 
-        Project.gluPerspective((float) this.getFov(tickDelta, true), (float)this.field_1029.width / (float)this.field_1029.height, 0.05F, this.field_1029.options.viewDistance * 16 * MathHelper.SQUARE_ROOT_OF_TWO);
+        Project.gluPerspective((float) this.worldpreview_getFov(tickDelta, true), (float)this.client.width / (float)this.client.height, 0.05F, this.client.options.viewDistance * 16 * MathHelper.SQUARE_ROOT_OF_TWO);
         GlStateManager.matrixMode(5888);
         GlStateManager.loadIdentity();
 
@@ -313,26 +393,26 @@ public abstract class LoadingScreenRendererMixin {
 
 
 
-        this.transformCamera(tickDelta);
+        this.worldpreview_transformCamera(tickDelta);
 
 
     }
 
 
-    private void transformCamera(float tickDelta) {
+    private void worldpreview_transformCamera(float tickDelta) {
         Entity entity = WorldPreview.player;
         float f = entity.getEyeHeight();
         double d = entity.prevX + (entity.x - entity.prevX) * (double)tickDelta;
         double e = entity.prevY + (entity.y - entity.prevY) * (double)tickDelta + (double)f;
         double g = entity.prevZ + (entity.z - entity.prevZ) * (double)tickDelta;
-        if (this.field_1029.options.perspective > 0) {
+        if (this.client.options.perspective > 0) {
             double h = (double)(4);
-            if (this.field_1029.options.field_955) {
+            if (this.client.options.field_955) {
                 GlStateManager.translatef(0.0F, 0.0F, (float)(-h));
             } else {
                 float j = entity.yaw;
                 float k = entity.pitch;
-                if (this.field_1029.options.perspective == 2) {
+                if (this.client.options.perspective == 2) {
                     k += 180.0F;
                 }
 
@@ -347,7 +427,7 @@ public abstract class LoadingScreenRendererMixin {
                     p *= 0.1F;
                     q *= 0.1F;
                     r *= 0.1F;
-                    HitResult hitResult = WorldPreview.clientWorld.rayTrace(new Vec3d(d + (double)p, e + (double)q, g + (double)r), new Vec3d(d - l + (double)p + (double)r, e - n + (double)q, g - m + (double)r));
+                    BlockHitResult hitResult = WorldPreview.clientWorld.rayTrace(new Vec3d(d + (double)p, e + (double)q, g + (double)r), new Vec3d(d - l + (double)p + (double)r, e - n + (double)q, g - m + (double)r));
                     if (hitResult != null) {
                         double s = hitResult.pos.distanceTo(new Vec3d(d, e, g));
                         if (s < h) {
@@ -356,7 +436,7 @@ public abstract class LoadingScreenRendererMixin {
                     }
                 }
 
-                if (this.field_1029.options.perspective == 2) {
+                if (this.client.options.perspective == 2) {
                     GlStateManager.rotatef(180.0F, 0.0F, 1.0F, 0.0F);
                 }
 
@@ -370,7 +450,7 @@ public abstract class LoadingScreenRendererMixin {
             GlStateManager.translatef(0.0F, 0.0F, -0.1F);
         }
 
-        if (!this.field_1029.options.field_955) {
+        if (!this.client.options.field_955) {
             GlStateManager.rotatef(entity.prevPitch + (entity.pitch - entity.prevPitch) * tickDelta, 1.0F, 0.0F, 0.0F);
             GlStateManager.rotatef(entity.prevYaw + (entity.yaw - entity.prevYaw) * tickDelta + 180.0F, 0.0F, 1.0F, 0.0F);
         }
@@ -387,171 +467,103 @@ public abstract class LoadingScreenRendererMixin {
     private float lastSkyDarkness;
     private float skyDarkness;
 
-    private FloatBuffer updateFogColorBuffer(float red, float green, float blue, float alpha) {
+    private FloatBuffer worldpreview_updateFogColorBuffer(float red, float green, float blue, float alpha) {
         this.fogColorBuffer.clear();
         this.fogColorBuffer.put(red).put(green).put(blue).put(alpha);
         this.fogColorBuffer.flip();
         return this.fogColorBuffer;
     }
     private void renderClouds(WorldRenderer worldRenderer, float tickDelta, int anaglyphFilter) {
-        if (this.field_1029.options.getCloudMode() != 0) {
-            this.field_1029.profiler.swap("clouds");
+        if (this.client.options.getCloudMode() != 0) {
+            this.client.profiler.swap("clouds");
             GlStateManager.matrixMode(5889);
             GlStateManager.loadIdentity();
-            Project.gluPerspective((float) this.getFov(tickDelta, true), (float)this.field_1029.width / (float)this.field_1029.height, 0.05F, (float)(this.field_1029.options.viewDistance * 16) * 4.0F);
+            Project.gluPerspective((float) this.worldpreview_getFov(tickDelta, true), (float)this.client.width / (float)this.client.height, 0.05F, (float)(this.client.options.viewDistance * 16) * 4.0F);
             GlStateManager.matrixMode(5888);
             GlStateManager.pushMatrix();
-            this.renderFog(0, tickDelta);
-            worldRenderer.method_9910(tickDelta, anaglyphFilter);
-            //  GlStateManager.disableFog();
+            this.worldpreview_renderFog(0, tickDelta);
+            worldRenderer.renderClouds(tickDelta, anaglyphFilter);
+            GlStateManager.disableFog();
             GlStateManager.popMatrix();
             GlStateManager.matrixMode(5889);
             GlStateManager.loadIdentity();
-            Project.gluPerspective((float) this.getFov(tickDelta, true), (float)this.field_1029.width / (float)this.field_1029.height, 0.05F, (float)(this.field_1029.options.viewDistance * 16)* MathHelper.SQUARE_ROOT_OF_TWO);
+            Project.gluPerspective((float) this.worldpreview_getFov(tickDelta, true), (float)this.client.width / (float)this.client.height, 0.05F, (float)(this.client.options.viewDistance * 16)* MathHelper.SQUARE_ROOT_OF_TWO);
             GlStateManager.matrixMode(5888);
         }
 
     }
-    private void renderFog(int i, float tickDelta) {
 
-
-
-        GL11.glFog(2918, this.updateFogColorBuffer(this.fogRed, this.fogGreen, this.fogBlue, 1.0F));
+    private void worldpreview_renderFog(int i, float tickDelta) {
+        Entity entity = this.client.getCameraEntity();
+        GL11.glFog(2918, (FloatBuffer)this.worldpreview_updateFogColorBuffer(this.fogRed, this.fogGreen, this.fogBlue, 1.0F));
         GL11.glNormal3f(0.0F, -1.0F, 0.0F);
         GlStateManager.color4f(1.0F, 1.0F, 1.0F, 1.0F);
-
+        Block block = Camera.getSubmergedBlock(WorldPreview.clientWorld, entity, tickDelta);
         float g;
-
-        g = (float)(this.field_1029.options.viewDistance * 16);
-        GlStateManager.fogMode(9729);
-        if (i == -1) {
-            GlStateManager.fogStart(0.0F);
-            GlStateManager.fogEnd(g);
+        if (block.getMaterial() == Material.WATER) {
+            GlStateManager.fogMode(2048);
+            GlStateManager.fogDensity(0.1F);
+        } else if (block.getMaterial() == Material.LAVA) {
+            GlStateManager.fogMode(2048);
+            GlStateManager.fogDensity(2.0F);
         } else {
-            GlStateManager.fogStart(g * 0.75F);
-            GlStateManager.fogEnd(g);
-        }
+            g = this.client.options.viewDistance * 16;
+            GlStateManager.fogMode(9729);
+            if (i == -1) {
+                GlStateManager.fogStart(0.0F);
+                GlStateManager.fogEnd(g);
+            } else {
+                GlStateManager.fogStart(g * 0.75F);
+                GlStateManager.fogEnd(g);
+            }
 
-        if (GLContext.getCapabilities().GL_NV_fog_distance) {
-            GL11.glFogi(34138, 34139);
+            if (GLContext.getCapabilities().GL_NV_fog_distance) {
+                GL11.glFogi(34138, 34139);
+            }
         }
-
 
         GlStateManager.enableColorMaterial();
         GlStateManager.enableFog();
         GlStateManager.colorMaterial(1028, 4608);
     }
 
-    private double getFov( double tickDelta, boolean changingFov) {
-
-        return this.field_1029.options.fov;
-
+    private double worldpreview_getFov( double tickDelta, boolean changingFov) {
+        return this.client.options.fov;
     }
 
-
-    @Inject(method = "<init>",at = @At(value = "TAIL"))
-    public void worldpreview_init(MinecraftClient field_1029, CallbackInfo ci){
-        WorldPreview.freezePreview=false;
-        WorldPreview.calculatedSpawn=false;
-        KeyBinding.unpressAll();
-    }
-private boolean bbb = false;
-   /* public void renderWorld(float tickDelta, long limitTime) {
-       // this.field_1029.gameRenderer.updateLightmap(tickDelta);
-
-
-
-        GlStateManager.enableDepthTest();
-        GlStateManager.enableAlphaTest();
-        GlStateManager.alphaFunc(516, 0.5F);
-
-            this.renderWorld(2, tickDelta, limitTime);
-
-
+    private void worldpreview_renderMenuButtons(int width, int height, int mouseX, int mouseY) {
+        TextRenderer textRenderer = this.client.textRenderer;
+        for (ButtonWidget button: this.buttons) {
+            int buttonWidth = button.getWidth();
+            int buttonHeight = 20;
+            this.client.getTextureManager().bindTexture(new Identifier("textures/gui/widgets.png"));
+            GlStateManager.color4f(1.0F, 1.0F, 1.0F, 1.0F);
+            boolean hovered = mouseX >= button.x && mouseY >= button.y && mouseX < button.x + buttonWidth && mouseY < button.y + buttonHeight;
+            int i = hovered ? 2 : 1;
+            GlStateManager.enableBlend();
+            GlStateManager.blendFuncSeparate(770, 771, 1, 0);
+            GlStateManager.blendFunc(770, 771);
+            this.worldpreview_drawTexture(button.x, button.y, 0, 46 + i * 20, buttonWidth / 2, buttonHeight);
+            this.worldpreview_drawTexture(button.x + buttonWidth / 2, button.y, 200 - buttonWidth / 2, 46 + i * 20, buttonWidth / 2, buttonHeight);
+            int j = hovered ? 16777120 : 14737632;
+            this.worldpreview_renderCenteredString(textRenderer, button.message, button.x + buttonWidth / 2, button.y + (buttonHeight - 8) / 2, j);
+        }
     }
 
-    private void renderWorld(int anaglyphFilter, float tickDelta, long limitTime) {
+    private void worldpreview_renderCenteredString(TextRenderer textRenderer, String text, int centerX, int y, int color) {
+        textRenderer.drawWithShadow(text, (float)(centerX - textRenderer.getStringWidth(text) / 2), (float)y, color);
+    }
 
-        WorldRenderer worldRenderer = WorldPreview.worldRenderer;
-        GlStateManager.enableCull();
-        this.minecraft.getProfiler().swap("camera");
-        this.applyCameraTransformations(tickDelta);
-        Camera camera = WorldPreview.camera;
-        camera.update(WorldPreview.world, WorldPreview.player, this.minecraft.options.perspective > 0, this.minecraft.options.perspective == 2, tickDelta);
-        Frustum frustum = GlMatrixFrustum.get();
-        worldRenderer.method_21595(camera);
-        this.minecraft.getProfiler().swap("clear");
-        GlStateManager.viewport(0, 0, this.minecraft.window.getFramebufferWidth(), this.minecraft.window.getFramebufferHeight());
-        this.backgroundRenderer.renderBackground(camera, tickDelta);
-        GlStateManager.clear(16640, MinecraftClient.IS_SYSTEM_MAC);
-        this.minecraft.getProfiler().swap("culling");
-        VisibleRegion visibleRegion = new FrustumWithOrigin(frustum);
-        double d = camera.getPos().x;
-        double e = camera.getPos().y;
-        double f = camera.getPos().z;
-        visibleRegion.setOrigin(d, e, f);
-        if (this.minecraft.options.viewDistance >= 4) {
-            this.backgroundRenderer.applyFog(camera, -1);
-            this.minecraft.getProfiler().swap("sky");
-            GlStateManager.matrixMode(5889);
-            GlStateManager.loadIdentity();
-            GlStateManager.multMatrix(Matrix4f.method_4929(this.getFov(camera, tickDelta, true), (float)this.minecraft.window.getFramebufferWidth() / (float)this.minecraft.window.getFramebufferHeight(), 0.05F, this.minecraft.options.viewDistance * 16 * 2.0F));
-            GlStateManager.matrixMode(5888);
-            worldRenderer.renderSky(tickDelta);
-            GlStateManager.matrixMode(5889);
-            GlStateManager.loadIdentity();
-            GlStateManager.multMatrix(Matrix4f.method_4929(this.getFov(camera, tickDelta, true), (float)this.minecraft.window.getFramebufferWidth() / (float)this.minecraft.window.getFramebufferHeight(), 0.05F, this.minecraft.options.viewDistance * 16 * MathHelper.SQUARE_ROOT_OF_TWO));
-            GlStateManager.matrixMode(5888);
-        }
-
-        this.backgroundRenderer.applyFog(camera, 0);
-        GlStateManager.shadeModel(7425);
-        if (camera.getPos().y < 128.0D) {
-            this.renderAboveClouds(camera, worldRenderer, tickDelta, d, e, f);
-        }
-
-        this.minecraft.getProfiler().swap("prepareterrain");
-        this.backgroundRenderer.applyFog(camera, 0);
-        this.minecraft.getTextureManager().bindTexture(SpriteAtlasTexture.BLOCK_ATLAS_TEX);
-        DiffuseLighting.disable();
-        this.minecraft.getProfiler().swap("terrain_setup");
-        WorldPreview.clientWord.getChunkManager().getLightingProvider().doLightUpdates(2147483647, true, true);
-        worldRenderer.setUpTerrain(camera, visibleRegion, this.field_4021++, false);
-        this.minecraft.getProfiler().swap("updatechunks");
-        worldRenderer.updateChunks(endTime);
-        this.minecraft.getProfiler().swap("terrain");
-        GlStateManager.matrixMode(5888);
-        GlStateManager.pushMatrix();
-        GlStateManager.disableAlphaTest();
-        worldRenderer.renderLayer(RenderLayer.SOLID, camera);
-        GlStateManager.enableAlphaTest();
-        worldRenderer.renderLayer(RenderLayer.CUTOUT_MIPPED, camera);
-        this.minecraft.getTextureManager().getTexture(SpriteAtlasTexture.BLOCK_ATLAS_TEX).pushFilter(false, false);
-        worldRenderer.renderLayer(RenderLayer.CUTOUT, camera);
-        this.minecraft.getTextureManager().getTexture(SpriteAtlasTexture.BLOCK_ATLAS_TEX).popFilter();
-        GlStateManager.shadeModel(7424);
-        GlStateManager.alphaFunc(516, 0.1F);
-        GlStateManager.matrixMode(5888);
-        GlStateManager.popMatrix();
-
-
-        this.minecraft.getProfiler().swap("translucent");
-        worldRenderer.renderLayer(RenderLayer.TRANSLUCENT, camera);
-        GlStateManager.shadeModel(7424);
-        GlStateManager.depthMask(true);
-        GlStateManager.enableCull();
-        GlStateManager.disableBlend();
-        GlStateManager.disableFog();
-        if (camera.getPos().y >= 128.0D) {
-            this.minecraft.getProfiler().swap("aboveClouds");
-            this.renderAboveClouds(camera, worldRenderer, tickDelta, d, e, f);
-        }
-
-    }*/
-
-
-
-
-
-
+    private void worldpreview_drawTexture(int x, int y, int u, int v, int width, int height) {
+        float f = 0.00390625F;
+        float g = 0.00390625F;
+        Tessellator tessellator = Tessellator.getInstance();
+        BufferBuilder bufferBuilder = tessellator.getBuffer();
+        bufferBuilder.begin(7, VertexFormats.POSITION_TEXTURE);
+        bufferBuilder.vertex((double)(x + 0), (double)(y + height), (double)0).texture((double)((float)(u + 0) * f), (double)((float)(v + height) * g)).next();
+        bufferBuilder.vertex((double)(x + width), (double)(y + height), (double)0).texture((double)((float)(u + width) * f), (double)((float)(v + height) * g)).next();
+        bufferBuilder.vertex((double)(x + width), (double)(y + 0), (double)0).texture((double)((float)(u + width) * f), (double)((float)(v + 0) * g)).next();
+        bufferBuilder.vertex((double)(x + 0), (double)(y + 0), (double)0).texture((double)((float)(u + 0) * f), (double)((float)(v + 0) * g)).next();
+        tessellator.draw();
+    }
 }
