@@ -3,7 +3,6 @@ package me.voidxwalker.worldpreview.mixin.client.render;
 
 import me.voidxwalker.worldpreview.PreviewRenderer;
 import me.voidxwalker.worldpreview.WorldPreview;
-import me.voidxwalker.worldpreview.mixin.access.BuiltChunkStorageMixin;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.BuiltChunkStorage;
 import net.minecraft.client.render.GameRenderer;

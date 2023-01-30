@@ -9,7 +9,6 @@
     "access.GameRendererMixin",
     "access.ClientChunkProviderMixin",
     "access.ServerChunkProviderMixin",
-    "access.BuiltChunkStorageMixin",
     "client.render.WorldRendererMixin",
     "client.render.LoadingScreenRendererMixin",
     "client.MinecraftClientMixin",
