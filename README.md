@@ -8,7 +8,7 @@ Minecraft mod that draws a preview of the world on the loading screen during chu
 - There are **no server side modifications** besides minecraft getting the random value for the player spawn earlier (Random is Random so it doesn't change anything)
 - You will not be able to reset after the worldgen reaches 100%. This is intentional
 
-![F3 + Esc example](https://github.com/VoidXWalker/WorldPreview/blob/1.8.9/preview-example.png?raw=true)
+![F3 + Esc example](https://github.com/Minecraft-Java-Edition-Speedrunning/mcsr-worldpreview-1.8.9/blob/main/preview-example.png?raw=true)
 ## Usage
 The preview will always render when you create a world.
 
