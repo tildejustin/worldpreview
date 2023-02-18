@@ -15,7 +15,8 @@
     "client.GameOptionsMixin",
     "client.GameMenuScreenMixin",
     "server.MinecraftServerMixin",
-    "server.ServerPlayerEntityMixin"
+    "server.ServerPlayerEntityMixin",
+    "server.UserCacheMixin"
   ],
   "injectors": {
     "defaultRequire": 1
