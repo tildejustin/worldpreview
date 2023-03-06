@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.Random;
 
 @Mixin(MinecraftServer.class)
-public abstract class MinecraftServerMixin {//  extends ReentrantThreadExecutor<ServerTask> {
+public abstract class MinecraftServerMixin {
 
     @Shadow public abstract ServerWorld getWorld(int id);
 
@@ -60,11 +60,15 @@ public abstract class MinecraftServerMixin {//  extends ReentrantThreadExecutor<
 
     @Shadow protected abstract void logProgress(String progressType, int worldProgress);
 
+    private long lastChunkUpdateTime = 0;
+
     @Redirect(method = "prepareWorlds",at = @At(value = "INVOKE",target = "Lnet/minecraft/world/chunk/ServerChunkProvider;getOrGenerateChunk(II)Lnet/minecraft/world/chunk/Chunk;"))
     public Chunk getChunks(ServerChunkProvider instance, int x, int z){
+        long currentTime = MinecraftClient.getTime();
         Chunk ret = instance.getOrGenerateChunk(x,z);
         synchronized (WorldPreview.lock){
-            if(WorldPreview.player!=null && !WorldPreview.freezePreview && WorldPreview.inPreview){
+            if(WorldPreview.player!=null && !WorldPreview.freezePreview && WorldPreview.inPreview && currentTime - lastChunkUpdateTime >= 1000L / WorldPreview.loadingScreenFPS){
+                lastChunkUpdateTime = currentTime;
                 LongObjectStorage<Chunk> chunkStorage=((ClientChunkProviderMixin) WorldPreview.clientWorld.getChunkProvider()).getChunkStorage();
                 List<Chunk> chunks=((ClientChunkProviderMixin) WorldPreview.clientWorld.getChunkProvider()).getChunks();
                 Iterator<Chunk> iterator =  ((ServerChunkProviderMixin)instance).getChunks().iterator();
