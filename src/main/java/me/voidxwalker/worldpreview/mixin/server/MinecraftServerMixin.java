@@ -60,6 +60,7 @@ public abstract class MinecraftServerMixin {
 
     @Shadow protected abstract void logProgress(String progressType, int worldProgress);
 
+    @Shadow private boolean stopped;
     private long lastChunkUpdateTime = 0;
 
     @Redirect(method = "prepareWorlds",at = @At(value = "INVOKE",target = "Lnet/minecraft/world/chunk/ServerChunkProvider;getOrGenerateChunk(II)Lnet/minecraft/world/chunk/Chunk;"))
@@ -180,22 +181,19 @@ public abstract class MinecraftServerMixin {
     }
 
     /**
-     * Identical to stopServer() except without saving player data.
+     * Similar to MinecraftServer.stopServer() but with some unnecessary code removed.
      */
     public void worldpreview_shutdownWithoutSave() {
         WorldPreview.kill = 0;
+        this.stopped = true; // rejects any server tasks (including those submitted from other threads) past this point
         if (!this.shouldResetWorld) {
-            LOGGER.info("Stopping server");
+            WorldPreview.LOGGER.info("Stopping server during preview.");
             if (this.getNetworkIo() != null) {
                 this.getNetworkIo().stop();
             }
-
-            if (this.worlds != null) {
-                for(int i = 0; i < this.worlds.length; ++i) {
-                    ServerWorld serverWorld = this.worlds[i];
-                    serverWorld.close();
-                }
-            }
+            /*
+            calling serverWorlds.close() here is bad because it causes the server thread to wait for file IO threads to close.
+             */
             if (this.snooper.isActive()) {
                 this.snooper.concel();
             }
