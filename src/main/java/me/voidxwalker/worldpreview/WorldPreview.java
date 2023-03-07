@@ -76,10 +76,10 @@ public class WorldPreview implements ClientModInitializer {
             } else {
                 log("No worldpreview.properties file found in .minecraft/config. Creating one with default values..");
             }
-            loadingScreenFPS = Math.max(5, Integer.parseInt(properties.getProperty("loading_screen_fps", "15")));
-            loadingScreenPollingRate = Math.max(loadingScreenFPS, Integer.parseInt(properties.getProperty("loading_screen_polling_rate", "15")));
+            loadingScreenFPS = Math.max(5, Integer.parseInt(properties.getProperty("loading_screen_fps", "20")));
+            loadingScreenPollingRate = Math.max(loadingScreenFPS, Integer.parseInt(properties.getProperty("loading_screen_polling_rate", "20")));
             worldGenLogInterval = Math.max(50, Math.min(1000, Integer.parseInt(properties.getProperty("worldgen_log_interval", "100"))));
-            worldGenFreezePercentage = Math.max(50, Math.min(100, Integer.parseInt(properties.getProperty("worldgen_freeze_percentage", "70"))));
+            worldGenFreezePercentage = Math.max(50, Math.min(100, Integer.parseInt(properties.getProperty("worldgen_freeze_percentage", "90"))));
             FileWriter fileWriter = new FileWriter(configFile);
             fileWriter.write("# FPS during the preview. Chunks are only loaded during active frames, so this also affects clientside worldgen speed. Minimum: 5fps\n");
             fileWriter.write("loading_screen_fps = " + loadingScreenFPS + "\n\n");
