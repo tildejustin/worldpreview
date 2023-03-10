@@ -29,6 +29,8 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+import java.util.concurrent.locks.LockSupport;
+
 @Mixin(MinecraftClient.class)
 public abstract class MinecraftClientMixin {
 
@@ -77,7 +79,11 @@ public abstract class MinecraftClientMixin {
             WorldPreview.log("Leaving world generation");
             WorldPreview.kill = 1;
             while(WorldPreview.kill == 1) {
-                Thread.yield();
+                /*
+                It's hard to quantify how bad of an idea using Thread.yield() here is instead of something that actually
+                suspends the thread. The client thread needs to give up some resources, not just offer to.
+                 */
+                LockSupport.parkNanos((1000L / WorldPreview.loadingScreenFPS) * 1000000L);
             }
             this.server = null;
             this.connect((ClientWorld) null);

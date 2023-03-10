@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.Random;
 
 @Mixin(MinecraftServer.class)
-public abstract class MinecraftServerMixin {//  extends ReentrantThreadExecutor<ServerTask> {
+public abstract class MinecraftServerMixin {
 
     @Shadow public abstract ServerWorld getWorld(int id);
 
@@ -60,11 +60,16 @@ public abstract class MinecraftServerMixin {//  extends ReentrantThreadExecutor<
 
     @Shadow protected abstract void logProgress(String progressType, int worldProgress);
 
+    @Shadow private boolean stopped;
+    private long lastChunkUpdateTime = 0;
+
     @Redirect(method = "prepareWorlds",at = @At(value = "INVOKE",target = "Lnet/minecraft/world/chunk/ServerChunkProvider;getOrGenerateChunk(II)Lnet/minecraft/world/chunk/Chunk;"))
     public Chunk getChunks(ServerChunkProvider instance, int x, int z){
+        long currentTime = MinecraftClient.getTime();
         Chunk ret = instance.getOrGenerateChunk(x,z);
         synchronized (WorldPreview.lock){
-            if(WorldPreview.player!=null && !WorldPreview.freezePreview && WorldPreview.inPreview){
+            if(WorldPreview.player!=null && !WorldPreview.freezePreview && WorldPreview.inPreview && currentTime - lastChunkUpdateTime >= 1000L / WorldPreview.loadingScreenFPS){
+                lastChunkUpdateTime = currentTime;
                 LongObjectStorage<Chunk> chunkStorage=((ClientChunkProviderMixin) WorldPreview.clientWorld.getChunkProvider()).getChunkStorage();
                 List<Chunk> chunks=((ClientChunkProviderMixin) WorldPreview.clientWorld.getChunkProvider()).getChunks();
                 Iterator<Chunk> iterator =  ((ServerChunkProviderMixin)instance).getChunks().iterator();
@@ -99,8 +104,7 @@ public abstract class MinecraftServerMixin {//  extends ReentrantThreadExecutor<
                 WorldPreview.world= this.getWorld(0);
                 LevelInfo properties = new LevelInfo(WorldPreview.world.getLevelProperties().getSeed(), LevelInfo.GameMode.SURVIVAL, false, WorldPreview.world.getLevelProperties().isHardcore(), WorldPreview.world.getLevelProperties().getGeneratorType());
                 WorldPreview.clientWorld = new ClientWorld(null, properties, 0, Difficulty.NORMAL , MinecraftClient.getInstance().profiler);
-                ClientPlayNetworkHandler networkHandler = new ClientPlayNetworkHandler(MinecraftClient.getInstance(), null, null, MinecraftClient.getInstance().getSession().getProfile());
-                WorldPreview.player = new ClientPlayerEntity(MinecraftClient.getInstance(), WorldPreview.clientWorld, networkHandler,null);
+                WorldPreview.player = new ClientPlayerEntity(MinecraftClient.getInstance(), WorldPreview.clientWorld, null,null);
             }
         }
     }
@@ -177,22 +181,19 @@ public abstract class MinecraftServerMixin {//  extends ReentrantThreadExecutor<
     }
 
     /**
-     * Identical to stopServer() except without saving player data.
+     * Similar to MinecraftServer.stopServer() but with some unnecessary code removed.
      */
     public void worldpreview_shutdownWithoutSave() {
         WorldPreview.kill = 0;
+        this.stopped = true; // rejects any server tasks (including those submitted from other threads) past this point
         if (!this.shouldResetWorld) {
-            LOGGER.info("Stopping server");
+            WorldPreview.LOGGER.info("Stopping server during preview.");
             if (this.getNetworkIo() != null) {
                 this.getNetworkIo().stop();
             }
-
-            if (this.worlds != null) {
-                for(int i = 0; i < this.worlds.length; ++i) {
-                    ServerWorld serverWorld = this.worlds[i];
-                    serverWorld.close();
-                }
-            }
+            /*
+            calling serverWorlds.close() here is bad because it causes the server thread to wait for file IO threads to close.
+             */
             if (this.snooper.isActive()) {
                 this.snooper.concel();
             }
