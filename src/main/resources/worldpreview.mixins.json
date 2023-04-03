@@ -23,13 +23,13 @@
 
     "client.render.WorldRendererMixin",
     "client.render.LevelLoadingScreenMixin",
-    "client.TitleScreenMixin",
-    "client.WorldGenerationProgressLoggerMixin",
 
     "client.MinecraftClientMixin",
     "client.KeyboardMixin",
-    "client.ClientWorldMixin",
     "client.GameOptionsMixin",
+    "client.ClientWorldMixin",
+    "client.TitleScreenMixin",
+    "client.WorldGenerationProgressLoggerMixin",
 
     "server.MinecraftServerMixin",
     "server.ServerChunkManagerMixin",
