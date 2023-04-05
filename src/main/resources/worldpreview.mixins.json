@@ -11,6 +11,8 @@
     "access.ChunkInfoMixin",
     "access.KeyBindingMixin",
     "access.WorldRendererMixin",
+    "access.MinecraftClientMixin",
+    "access.SerializingRegionBasedStorageMixin",
 
     "client.render.LevelLoadingScreenMixin",
     "client.render.WorldRendererMixin",
