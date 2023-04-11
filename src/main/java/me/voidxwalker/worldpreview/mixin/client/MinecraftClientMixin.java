@@ -106,4 +106,14 @@ public abstract class MinecraftClientMixin {
         }
 
     }
+
+    @Inject(method = "render", at = @At(value = "INVOKE", target="Lnet/minecraft/client/util/Window;swapBuffers()V", shift = At.Shift.AFTER))
+    private void worldpreview_actuallyInPreview(boolean tick, CallbackInfo ci) {
+        if (WorldPreview.inPreview && !WorldPreview.renderingPreview) {
+            WorldPreview.renderingPreview = true;
+            StateOutputHelper.outputState("previewing," + StateOutputHelper.loadingProgress);
+            WorldPreview.log(Level.INFO, "Starting Preview at (" + WorldPreview.player.getX() + ", " + (double) Math.floor(WorldPreview.player.getY()) + ", " + WorldPreview.player.getZ() + ")");
+        }
+    }
+
 }
