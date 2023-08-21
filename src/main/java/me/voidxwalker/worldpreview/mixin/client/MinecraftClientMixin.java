@@ -1,6 +1,7 @@
 package me.voidxwalker.worldpreview.mixin.client;
 
 import me.voidxwalker.worldpreview.OldSodiumCompatibility;
+import me.voidxwalker.worldpreview.StateOutputInterface;
 import me.voidxwalker.worldpreview.WorldPreview;
 import me.voidxwalker.worldpreview.mixin.access.WorldRendererMixin;
 import net.minecraft.client.MinecraftClient;
@@ -15,6 +16,7 @@ import net.minecraft.client.sound.SoundManager;
 import net.minecraft.entity.Entity;
 import net.minecraft.network.ClientConnection;
 import net.minecraft.resource.ReloadableResourceManager;
+import net.minecraft.resource.ResourceReloadListener;
 import net.minecraft.resource.ResourceReloader;
 import net.minecraft.server.integrated.IntegratedServer;
 import net.minecraft.sound.SoundEvents;
@@ -77,7 +79,7 @@ public abstract class MinecraftClientMixin {
                 this.server.shutdown();
                 MinecraftClient.getInstance().disconnect();
                 WorldPreview.kill=0;
-                MinecraftClient.getInstance().setScreen(new TitleScreen());
+                MinecraftClient.getInstance().openScreen(new TitleScreen());
                 ci.cancel();
             }
             if(WorldPreview.freezeKey.wasPressed()){
@@ -97,21 +99,21 @@ public abstract class MinecraftClientMixin {
         WorldPreview.existingWorld=true;
     }
 
-    @Redirect(method="reset",at=@At(value="INVOKE",target="Lnet/minecraft/client/MinecraftClient;setScreen(Lnet/minecraft/client/gui/screen/Screen;)V"))
+    @Redirect(method="reset",at=@At(value="INVOKE",target="Lnet/minecraft/client/MinecraftClient;openScreen(Lnet/minecraft/client/gui/screen/Screen;)V"))
     public void worldpreview_smoothTransition(MinecraftClient instance, Screen screen){
         if(this.currentScreen instanceof LevelLoadingScreen&&  ((WorldRendererMixin)WorldPreview.worldRenderer).getWorld()!=null&&WorldPreview.world!=null&& WorldPreview.clientWord!=null&&WorldPreview.player!=null){
             return;
         }
-        instance.setScreen(screen);
+        instance.openScreen(screen);
 
     }
 
-    @Redirect(method = "<init>",at = @At(value = "INVOKE",target = "Lnet/minecraft/resource/ReloadableResourceManager;registerReloader(Lnet/minecraft/resource/ResourceReloader;)V",ordinal = 15))
-    public void worldpreview_createWorldRenderer(ReloadableResourceManager instance, ResourceReloader resourceReloader){
+    @Redirect(method = "<init>",at = @At(value = "INVOKE",target = "Lnet/minecraft/resource/ReloadableResourceManager;registerListener(Lnet/minecraft/resource/ResourceReloadListener;)V", ordinal = 15))
+    public void worldpreview_createWorldRenderer(ReloadableResourceManager instance, ResourceReloadListener resourceReloadListener){
         WorldPreview.worldRenderer=new WorldRenderer(MinecraftClient.getInstance(), new BufferBuilderStorage());
         ((OldSodiumCompatibility)WorldPreview.worldRenderer).setPreviewRenderer();
         this.worldRenderer = new WorldRenderer((MinecraftClient) (Object)this, this.bufferBuilders);
-        instance.registerReloader(worldRenderer);
+        instance.registerListener(worldRenderer);
 
     }
     @Inject(method = "disconnect(Lnet/minecraft/client/gui/screen/Screen;)V",at=@At(value = "HEAD"))
@@ -125,6 +127,17 @@ public abstract class MinecraftClientMixin {
                 ((OldSodiumCompatibility)WorldPreview.worldRenderer).worldpreview_setWorldSafe(null);
             }
             worldpreview_cycleCooldown=0;
+        }
+    }
+
+    @Inject(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/util/Window;swapBuffers()V", shift = At.Shift.AFTER))
+    private void worldpreview_actuallyInPreview(boolean tick, CallbackInfo ci) {
+        if (WorldPreview.inPreview && !WorldPreview.renderingPreview) {
+            WorldPreview.renderingPreview = true;
+            if (WorldPreview.hasStateOutput) {
+                StateOutputInterface.outputPreviewing();
+            }
+            WorldPreview.log(Level.INFO, "Starting Preview at (" + WorldPreview.player.getX() + ", " + Math.floor(WorldPreview.player.getY()) + ", " + WorldPreview.player.getZ() + ")");
         }
     }
 }

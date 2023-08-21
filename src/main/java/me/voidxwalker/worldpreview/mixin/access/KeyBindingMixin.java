@@ -9,11 +9,11 @@ import java.util.Map;
 
 @Mixin(KeyBinding.class)
 public interface KeyBindingMixin {
-    @Accessor
+    @Accessor("keyToBindings")
     static Map<InputUtil.Key, KeyBinding> getKEY_TO_BINDINGS() {
         throw new AssertionError();
     }
-    @Accessor("CATEGORY_ORDER_MAP")
+    @Accessor("categoryOrderMap")
     static Map<String, Integer> invokeGetCategoryMap() {
         throw new AssertionError();
     }

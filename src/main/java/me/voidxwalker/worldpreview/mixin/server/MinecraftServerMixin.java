@@ -95,40 +95,30 @@ public abstract class MinecraftServerMixin  extends ReentrantThreadExecutor<Serv
     }
     private void worldpreview_calculateSpawn(ServerWorld serverWorld) {
         BlockPos blockPos = WorldPreview.spawnPos;
-        if (WorldPreview.world.getDimension().hasSkyLight() && this.getSaveProperties().getGameMode() != GameMode.ADVENTURE) {
-            int i = Math.max(0, this.getSpawnRadius((ServerWorld) WorldPreview.world));
-            int j = MathHelper.floor(WorldPreview.world.getWorldBorder().getDistanceInsideBorder((double)blockPos.getX(), (double)blockPos.getZ()));
-            if (j < i) {
-                i = j;
-            }
-
-            if (j <= 1) {
-                i = 1;
-            }
-
-            long l = (long)(i * 2 + 1);
-            long m = l * l;
-            int k = m > 2147483647L ? Integer.MAX_VALUE : (int)m;
-            int n = this.worldpreview_calculateSpawnOffsetMultiplier(k);
-            int o = (new Random()).nextInt(k);
-            WorldPreview.playerSpawn=o;
-            for(int p = 0; p < k; ++p) {
-                int q = (o + n * p) % k;
-                int r = q % (i * 2 + 1);
-                int s = q / (i * 2 + 1);
-                BlockPos blockPos2 = SpawnLocatingMixin.callFindOverworldSpawn((ServerWorld) WorldPreview.world, blockPos.getX() + r - i, blockPos.getZ() + s - i, false);
-                if (blockPos2 != null) {
-                    WorldPreview.player.refreshPositionAndAngles(blockPos2, 0.0F, 0.0F);
-                    if (((ServerWorld) WorldPreview.world).isSpaceEmpty(WorldPreview.player)) {
-                        break;
-                    }
+        int i = Math.max(0, this.getSpawnRadius((ServerWorld) WorldPreview.world));
+        int j = MathHelper.floor(WorldPreview.world.getWorldBorder().getDistanceInsideBorder(blockPos.getX(), blockPos.getZ()));
+        if (j < i) {
+            i = j;
+        }
+        if (j <= 1) {
+            i = 1;
+        }
+        long l = i * 2L + 1;
+        long m = l * l;
+        int k = m > 2147483647L ? Integer.MAX_VALUE : (int) m;
+        int n = this.worldpreview_calculateSpawnOffsetMultiplier(k);
+        int o = (new Random()).nextInt(k);
+        WorldPreview.playerSpawn = o;
+        for (int p = 0; p < k; ++p) {
+            int q = (o + n * p) % k;
+            int r = q % (i * 2 + 1);
+            int s = q / (i * 2 + 1);
+            BlockPos blockPos2 = SpawnLocatingMixin.callFindOverworldSpawn(serverWorld, blockPos.getX() + r - i, blockPos.getZ() + s - i, false);
+            if (blockPos2 != null) {
+                WorldPreview.player.refreshPositionAndAngles(blockPos2, 0.0F, 0.0F);
+                if (((ServerWorld) WorldPreview.world).isSpaceEmpty(WorldPreview.player)) {
+                    break;
                 }
-            }
-        } else {
-            WorldPreview.player.refreshPositionAndAngles(blockPos, 0.0F, 0.0F);
-
-            while(!WorldPreview.world.isSpaceEmpty(WorldPreview.player) && WorldPreview.player.getY() < (double)WorldPreview.world.getTopY() - 1) {
-                WorldPreview.player.setPosition(WorldPreview.player.getX(), WorldPreview.player.getY() + 1.0D,WorldPreview.player.getZ());
             }
         }
     }
@@ -146,6 +136,7 @@ public abstract class MinecraftServerMixin  extends ReentrantThreadExecutor<Serv
     @Inject(method="runServer",at=@At(value="INVOKE",target="Lnet/minecraft/server/MinecraftServer;setupServer()Z",shift = At.Shift.AFTER), cancellable = true)
     public void worldpreview_kill2(CallbackInfo ci){
         WorldPreview.inPreview=false;
+        WorldPreview.renderingPreview = false;
         if(WorldPreview.kill==1){
             ci.cancel();
         }
