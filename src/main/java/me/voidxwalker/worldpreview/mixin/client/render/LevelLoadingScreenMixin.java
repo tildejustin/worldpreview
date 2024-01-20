@@ -85,10 +85,9 @@ public abstract class LevelLoadingScreenMixin extends Screen {
                     this.worldpreview_showMenu= WorldPreview.showMenu;
                 }
                 if (WorldPreview.camera == null) {
-                    WorldPreview.player.refreshPositionAndAngles(WorldPreview.player.x, WorldPreview.player.y+ 1+(WorldPreview.player.getBoundingBox().y2-WorldPreview.player.getBoundingBox().y1), WorldPreview.player.z, 0.0F, 0.0F);
+                    WorldPreview.player.refreshPositionAndAngles(WorldPreview.player.x, WorldPreview.player.y, WorldPreview.player.z, 0.0F, 0.0F);
                     WorldPreview.camera = new Camera();
                     WorldPreview.camera.update(WorldPreview.world, WorldPreview.player, this.minecraft.options.perspective > 0, this.minecraft.options.perspective == 2, 0.2F);
-                    WorldPreview.player.refreshPositionAndAngles(WorldPreview.player.x, WorldPreview.player.y - 1.5, WorldPreview.player.z, 0.0F, 0.0F);
                     WorldPreview.inPreview=true;
                 }
 
