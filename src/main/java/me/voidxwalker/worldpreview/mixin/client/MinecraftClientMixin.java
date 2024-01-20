@@ -1,6 +1,6 @@
 package me.voidxwalker.worldpreview.mixin.client;
 
-import me.voidxwalker.worldpreview.WorldPreview;
+import me.voidxwalker.worldpreview.*;
 import me.voidxwalker.worldpreview.mixin.access.WorldRendererMixin;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.RunArgs;
@@ -104,15 +104,17 @@ public abstract class MinecraftClientMixin {
             }
             worldpreview_cycleCooldown=0;
         }
-
     }
 
+    // TODO: fix mixin
     @Inject(method = "render", at = @At(value = "INVOKE", target="Lnet/minecraft/client/util/Window;swapBuffers()V", shift = At.Shift.AFTER))
     private void worldpreview_actuallyInPreview(boolean tick, CallbackInfo ci) {
         if (WorldPreview.inPreview && !WorldPreview.renderingPreview) {
             WorldPreview.renderingPreview = true;
-            StateOutputHelper.outputState("previewing," + StateOutputHelper.loadingProgress);
-            WorldPreview.log(Level.INFO, "Starting Preview at (" + WorldPreview.player.getX() + ", " + (double) Math.floor(WorldPreview.player.getY()) + ", " + WorldPreview.player.getZ() + ")");
+            if (WorldPreview.stateOutputLoaded) {
+                StateOutputInterface.outputPreviewing();
+            }
+            WorldPreview.log(Level.INFO, "Starting Preview at (" + WorldPreview.player.x + ", " + Math.floor(WorldPreview.player.y) + ", " + WorldPreview.player.z + ")");
         }
     }
 
