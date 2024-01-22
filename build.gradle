@@ -12,6 +12,7 @@ base {
 
 repositories {
 	maven { url "https://s01.oss.sonatype.org/content/repositories/snapshots" }
+	maven { url "https://jitpack.io" }
 }
 
 loom {
@@ -23,6 +24,7 @@ loom {
 	mixin {
 		useLegacyMixinAp = false
 	}
+	accessWidenerPath = file("src/main/resources/worldpreview.accesswidener")
 }
 
 dependencies {
@@ -30,6 +32,8 @@ dependencies {
 	mappings variantOf(libs.yarn.mappings) { classifier "v2" }
 	modImplementation libs.fabric.loader
 	vineflowerDecompilerClasspath libs.vineflower
+
+	modImplementation libs.state.output
 }
 
 processResources {

@@ -4,12 +4,14 @@ yarn_mappings = "1.14.4+build.18"
 fabric_loader = "0.15.6"
 loom = "1.5-SNAPSHOT"
 vineflower = "1.10.0-SNAPSHOT"
+state_output = "v1.1.5"
 
 [libraries]
 minecraft = { module = "com.mojang:minecraft", version.ref = "minecraft" }
- yarn_mappings = { module = "net.fabricmc:yarn", version.ref = "yarn_mappings" }
+yarn_mappings = { module = "net.fabricmc:yarn", version.ref = "yarn_mappings" }
 fabric_loader = { module = "net.fabricmc:fabric-loader", version.ref = "fabric_loader" }
 vineflower = { module = "org.vineflower:vineflower", version.ref = "vineflower" }
+state_output = { module = "dev.tildejustin.state-output:state-output-common", version.ref = "state_output" }
 
 [plugins]
 fabric_loom = { id = "fabric-loom", version.ref = "loom" }
