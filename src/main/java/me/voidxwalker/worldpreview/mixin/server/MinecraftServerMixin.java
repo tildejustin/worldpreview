@@ -55,8 +55,6 @@ public abstract class MinecraftServerMixin  extends ReentrantThreadExecutor<Serv
 
     @Shadow public abstract ServerWorld getWorld(DimensionType dimensionType);
 
-    @Shadow public abstract void setServerIp(String serverIp);
-
     @Inject(method = "prepareStartRegion", at = @At(value = "HEAD"))
 
     public void getWorld(WorldGenerationProgressListener worldGenerationProgressListener, CallbackInfo ci){
@@ -65,7 +63,7 @@ public abstract class MinecraftServerMixin  extends ReentrantThreadExecutor<Serv
                 ServerWorld serverWorld = this.getWorld(DimensionType.OVERWORLD);
                 WorldPreview.spawnPos= serverWorld.getSpawnPos();
                 WorldPreview.freezePreview=false;
-                WorldPreview.world= this.getWorld(DimensionType.OVERWORLD);
+                WorldPreview.world= serverWorld;
                 WorldPreview.camera=null;
                 LevelInfo properties = new LevelInfo(WorldPreview.world.getLevelProperties().getSeed(), GameMode.SURVIVAL, false, WorldPreview.world.getLevelProperties().isHardcore(), WorldPreview.world.getLevelProperties().getGeneratorType());
 

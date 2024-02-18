@@ -3,17 +3,15 @@ package me.voidxwalker.worldpreview.mixin.client;
 import me.voidxwalker.worldpreview.*;
 import me.voidxwalker.worldpreview.mixin.access.WorldRendererMixin;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.RunArgs;
 import net.minecraft.client.gui.screen.LevelLoadingScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.TitleScreen;
 import net.minecraft.client.render.WorldRenderer;
-import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.client.sound.SoundManager;
 import net.minecraft.entity.Entity;
 import net.minecraft.network.ClientConnection;
+import net.minecraft.resource.*;
 import net.minecraft.server.integrated.IntegratedServer;
-import net.minecraft.sound.SoundEvents;
 import net.minecraft.world.level.LevelInfo;
 import net.minecraft.world.level.storage.LevelStorage;
 import org.apache.logging.log4j.Level;
@@ -92,6 +90,15 @@ public abstract class MinecraftClientMixin {
 
     }
 
+    @Redirect(method = "init", at = @At(value = "INVOKE", target = "Lnet/minecraft/resource/ReloadableResourceManager;registerListener(Lnet/minecraft/resource/ResourceReloadListener;)V", ordinal = 11))
+    public void worldpreview_createWorldRenderer(ReloadableResourceManager instance, ResourceReloadListener resourceReloadListener) {
+        WorldPreview.worldRenderer = new WorldRenderer(MinecraftClient.getInstance());
+        ((ChunkSetter) WorldPreview.worldRenderer).setPreviewRenderer();
+        this.worldRenderer = new WorldRenderer((MinecraftClient) (Object) this);
+        instance.registerListener(worldRenderer);
+
+    }
+
     @Inject(method = "disconnect(Lnet/minecraft/client/gui/screen/Screen;)V",at=@At(value = "HEAD"))
     public void reset(Screen screen, CallbackInfo ci){
         synchronized (WorldPreview.lock){
@@ -106,8 +113,7 @@ public abstract class MinecraftClientMixin {
         }
     }
 
-    // TODO: fix mixin
-    @Inject(method = "render", at = @At(value = "INVOKE", target="Lnet/minecraft/client/util/Window;swapBuffers()V", shift = At.Shift.AFTER))
+    @Inject(method = "updateDisplay", at = @At(value = "INVOKE", target="Lnet/minecraft/util/profiler/DisableableProfiler;pop()V", ordinal = 0, shift = At.Shift.AFTER))
     private void worldpreview_actuallyInPreview(boolean tick, CallbackInfo ci) {
         if (WorldPreview.inPreview && !WorldPreview.renderingPreview) {
             WorldPreview.renderingPreview = true;
