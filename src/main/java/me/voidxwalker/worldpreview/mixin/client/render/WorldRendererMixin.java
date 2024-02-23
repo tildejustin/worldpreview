@@ -30,7 +30,6 @@ import net.minecraft.client.render.debug.DebugRenderer;
 import net.minecraft.client.render.entity.EntityRenderDispatcher;
 import net.minecraft.client.render.model.ModelLoader;
 import net.minecraft.client.texture.SpriteAtlasTexture;
-import net.minecraft.client.util.math.Matrix4f;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.util.math.Vector3d;
 import net.minecraft.client.util.math.Vector3f;
@@ -248,7 +247,7 @@ public abstract class WorldRendererMixin<E> implements OldSodiumCompatibility {
                 if (bl2 && !spectator) {
                     this.visibleChunks.add(chunkInfo);
                 } else {
-                    if (spectator && this.world.getBlockState(blockPos).isFullOpaque(this.world, blockPos)) {
+                    if (spectator && this.world.getBlockState(blockPos).isOpaqueFullCube(this.world, blockPos)) {
                         bl = false;
                     }
 
@@ -468,7 +467,7 @@ public abstract class WorldRendererMixin<E> implements OldSodiumCompatibility {
                                         RenderSystem.multMatrix(matrices.peek().getModel());
                                         this.renderWorldBorder(camera);
                                         RenderSystem.popMatrix();
-                                        immediate.draw(TexturedRenderLayers.getEntityTranslucent());
+                                        immediate.draw(TexturedRenderLayers.getEntityTranslucentCull());
                                         immediate.draw(TexturedRenderLayers.getBannerPatterns());
                                         immediate.draw(TexturedRenderLayers.getShieldPatterns());
                                         immediate.draw(RenderLayer.getGlint());
@@ -521,7 +520,7 @@ public abstract class WorldRendererMixin<E> implements OldSodiumCompatibility {
                                             VertexConsumer vertexConsumer = new TransformingVertexConsumer(this.bufferBuilders.getEffectVertexConsumers().getBuffer((RenderLayer)ModelLoader.BLOCK_DESTRUCTION_RENDER_LAYERS.get(w)), matrices.peek());
                                             vertexConsumerProvider3 = (renderLayer) -> {
                                                 VertexConsumer vertexConsumer2 = immediate.getBuffer(renderLayer);
-                                                return renderLayer.method_23037() ? VertexConsumers.dual(vertexConsumer, vertexConsumer2) : vertexConsumer2;
+                                                return renderLayer.hasCrumbling() ? VertexConsumers.dual(vertexConsumer, vertexConsumer2) : vertexConsumer2;
                                             };
                                         }
                                     }

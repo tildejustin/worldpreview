@@ -27,7 +27,7 @@ public abstract class BlockModelRendererMixin implements OldSodiumCompatibility 
     @Override
     public boolean worldpreview_renderSafe(BlockRenderView view, BakedModel model, BlockState state, BlockPos pos, MatrixStack matrix, VertexConsumer vertexConsumer, boolean cull, Random random, long seed, int overlay) {
         boolean bl = MinecraftClient.isAmbientOcclusionEnabled() && state.getLuminance() == 0 && model.useAmbientOcclusion();
-        Vec3d vec3d = state.getOffsetPos(view, pos);
+        Vec3d vec3d = state.getModelOffset(view, pos);
         matrix.translate(vec3d.x, vec3d.y, vec3d.z);
 
         try {
@@ -36,7 +36,7 @@ public abstract class BlockModelRendererMixin implements OldSodiumCompatibility 
             CrashReport crashReport = CrashReport.create(var17, "Tesselating block model");
             CrashReportSection crashReportSection = crashReport.addElement("Block model being tesselated");
             CrashReportSection.addBlockInfo(crashReportSection, pos, state);
-            crashReportSection.add("Using AO", (Object)bl);
+            crashReportSection.add("Using AO", bl);
             throw new CrashException(crashReport);
         }
     }

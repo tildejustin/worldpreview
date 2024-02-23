@@ -68,8 +68,8 @@ public abstract class MinecraftServerMixin  extends ReentrantThreadExecutor<Serv
                 WorldPreview.spawnPos= serverWorld.getSpawnPos();
                 WorldPreview.freezePreview=false;
                 WorldPreview.world= this.getWorld(DimensionType.OVERWORLD);
-                LevelInfo properties = new LevelInfo(WorldPreview.world.getLevelProperties().getSeed(), GameMode.SURVIVAL, false, WorldPreview.world.getLevelProperties().isHardcore(), WorldPreview.world.getLevelProperties().getGeneratorType());
-                WorldPreview.clientWord = new ClientWorld(null,properties, DimensionType.OVERWORLD,16 , MinecraftClient.getInstance().getProfiler(),null);
+                LevelInfo properties = new LevelInfo(WorldPreview.world.getLevelProperties().getSeed(), GameMode.SURVIVAL, false, WorldPreview.world.getLevelProperties().isHardcore(), WorldPreview.world.getLevelProperties().getGeneratorOptions());
+                WorldPreview.clientWord = new ClientWorld(null,properties, DimensionType.OVERWORLD,16 , MinecraftClient.getInstance()::getProfiler,null);
                 WorldPreview.player=new ClientPlayerEntity(MinecraftClient.getInstance(),WorldPreview.clientWord,new ClientPlayNetworkHandler(MinecraftClient.getInstance(),null,null,MinecraftClient.getInstance().getSession().getProfile()),null,null);
                 worldpreview_calculateSpawn(serverWorld);
                 WorldPreview.calculatedSpawn=true;

@@ -14,11 +14,11 @@ import net.minecraft.client.options.KeyBinding;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.DiffuseLighting;
 import net.minecraft.client.util.Window;
-import net.minecraft.client.util.math.Matrix4f;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.util.math.Vector3f;
 import net.minecraft.text.Text;
 import net.minecraft.text.TranslatableText;
+import net.minecraft.util.math.Matrix4f;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -81,7 +81,7 @@ public abstract class LevelLoadingScreenMixin extends Screen {
                 if (WorldPreview.camera == null) {
                     WorldPreview.player.refreshPositionAndAngles(WorldPreview.player.getX(), WorldPreview.player.getEyeY(), WorldPreview.player.getZ(), 0.0F, 0.0F);
                     WorldPreview.camera = new Camera();
-                    WorldPreview.camera.update(WorldPreview.world, WorldPreview.player, this.minecraft.options.perspective > 0, this.minecraft.options.perspective == 2, 0.2F);
+                    WorldPreview.camera.update(WorldPreview.world, WorldPreview.player, this.client.options.perspective > 0, this.client.options.perspective == 2, 0.2F);
                     WorldPreview.inPreview=true;
                 }
                 MatrixStack matrixStack = new MatrixStack();
@@ -95,7 +95,7 @@ public abstract class LevelLoadingScreenMixin extends Screen {
                 m.multiply(Vector3f.POSITIVE_X.getDegreesQuaternion(WorldPreview.camera.getPitch()));
                 m.multiply(Vector3f.POSITIVE_Y.getDegreesQuaternion(WorldPreview.camera.getYaw() + 180.0F));
                 WorldPreview.worldRenderer.render(m, 0.2F, 1000000, false, WorldPreview.camera, MinecraftClient.getInstance().gameRenderer, MinecraftClient.getInstance().gameRenderer.getLightmapTextureManager(), matrix4f);
-                Window window = this.minecraft.getWindow();
+                Window window = this.client.getWindow();
                 RenderSystem.clear(256, MinecraftClient.IS_SYSTEM_MAC);
                 RenderSystem.matrixMode(5889);
                 RenderSystem.loadIdentity();
@@ -118,7 +118,7 @@ public abstract class LevelLoadingScreenMixin extends Screen {
             }
         }
         else {
-            this.drawCenteredString( minecraft.textRenderer, new TranslatableText("menu.paused").getString(), this.width / 2, 10, 16777215);
+            this.drawCenteredString( client.textRenderer, new TranslatableText("menu.paused").getString(), this.width / 2, 10, 16777215);
         }
     }
 
@@ -139,7 +139,7 @@ public abstract class LevelLoadingScreenMixin extends Screen {
     public Matrix4f  worldpreview_getBasicProjectionMatrix() {
         MatrixStack matrixStack = new MatrixStack();
         matrixStack.peek().getModel().loadIdentity();
-        matrixStack.peek().getModel().multiply(Matrix4f.viewboxMatrix(minecraft.options.fov, (float)this.minecraft.getWindow().getFramebufferWidth() / (float)this.minecraft.getWindow().getFramebufferHeight(), 0.05F, this.minecraft.options.viewDistance*16 * 4.0F));
+        matrixStack.peek().getModel().multiply(Matrix4f.viewboxMatrix(client.options.fov, (float)this.client.getWindow().getFramebufferWidth() / (float)this.client.getWindow().getFramebufferHeight(), 0.05F, this.client.options.viewDistance*16 * 4.0F));
         return matrixStack.peek().getModel();
     }
 
@@ -153,7 +153,7 @@ public abstract class LevelLoadingScreenMixin extends Screen {
         this.addButton(new ButtonWidget(this.width / 2 - 102, this.height / 4 + 96 - 16, 98, 20, new TranslatableText("menu.options").getString(), (ignored) -> {}));
         this.addButton(new ButtonWidget(this.width / 2 + 4, this.height / 4 + 96 - 16, 98, 20, new TranslatableText("menu.shareToLan").getString(), (ignored) -> {}));
         this.addButton(new ButtonWidget(this.width / 2 - 102, this.height / 4 + 120 - 16, 204, 20, new TranslatableText("menu.returnToMenu").getString(), (buttonWidgetX) -> {
-             minecraft.getSoundManager().stopAll();
+             client.getSoundManager().stopAll();
                 WorldPreview.kill = -1;
                 buttonWidgetX.active = false;
         }));
