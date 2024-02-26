@@ -13,6 +13,10 @@ import net.minecraft.client.world.ClientWorld;
 import net.minecraft.resource.ReloadableResourceManager;
 import net.minecraft.resource.ResourceReloader;
 import net.minecraft.server.integrated.IntegratedServer;
+import net.minecraft.util.registry.RegistryTracker;
+import net.minecraft.world.gen.GeneratorOptions;
+import net.minecraft.world.level.LevelInfo;
+import net.minecraft.world.level.storage.LevelStorage;
 import org.apache.logging.log4j.Level;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
@@ -25,6 +29,8 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+import java.io.IOException;
+import java.util.Objects;
 import java.util.concurrent.locks.LockSupport;
 
 @Mixin(MinecraftClient.class)
@@ -41,6 +47,10 @@ public abstract class MinecraftClientMixin {
     @Mutable
     @Shadow @Final public WorldRenderer worldRenderer;
     @Shadow @Final private BufferBuilderStorage bufferBuilders;
+
+    @Shadow public abstract boolean isDemo();
+
+    @Shadow @Final private LevelStorage levelStorage;
     private int worldpreview_cycleCooldown;
     @Inject(method = "isFabulousGraphicsOrBetter",at = @At(value = "RETURN"),cancellable = true)
     private static void worldpreview_stopFabulous(CallbackInfoReturnable<Boolean> cir){
@@ -84,6 +94,19 @@ public abstract class MinecraftClientMixin {
     @Inject(method="startIntegratedServer(Ljava/lang/String;)V",at=@At(value = "HEAD"))
     public void worldpreview_isExistingWorld(String worldName, CallbackInfo ci){
         WorldPreview.existingWorld=true;
+    }
+
+    @Inject(method="method_29607", at = @At("HEAD"))
+    private void isExistingDemoWorld(String worldName, LevelInfo levelInfo, RegistryTracker.Modifiable registryTracker, GeneratorOptions generatorOptions, CallbackInfo ci) {
+        if (this.isDemo() && "Demo_World".equals(worldName)) {
+            try (LevelStorage.Session demoSession = this.levelStorage.createSession("Demo_World")) {
+                if (demoSession.method_29584() != null) {
+                    WorldPreview.existingWorld = true;
+                }
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     @Redirect(method="reset",at=@At(value="INVOKE",target="Lnet/minecraft/client/MinecraftClient;openScreen(Lnet/minecraft/client/gui/screen/Screen;)V"))
