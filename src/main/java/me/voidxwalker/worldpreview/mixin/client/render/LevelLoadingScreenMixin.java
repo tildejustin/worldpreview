@@ -76,8 +76,6 @@ public abstract class LevelLoadingScreenMixin extends Screen {
                     WorldPreview.camera = new Camera();
                     WorldPreview.camera.update(WorldPreview.world, WorldPreview.player, this.minecraft.options.perspective > 0, this.minecraft.options.perspective == 2, 0.2F);
                     WorldPreview.inPreview = true;
-                    WorldPreview.worldRenderer.chunkInfos.add(0, WorldPreview.worldRenderer.new ChunkInfo(WorldPreview.worldRenderer.chunks.getChunkRenderer(WorldPreview.camera.getBlockPos()), null, 0));
-                    WorldPreview.worldRenderer.chunkBuilder.rebuildSync(WorldPreview.worldRenderer.chunks.getChunkRenderer(WorldPreview.camera.getBlockPos()));
                 }
                 renderWorld(delta, 1000000000 / 60 / 4);
                 Window window = this.minecraft.window;

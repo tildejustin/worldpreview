@@ -17,6 +17,7 @@
     "client.render.WorldRendererMixin",
     "client.render.ChunkRendererMixin",
     "client.render.BackgroundRendererMixin",
+    "client.render.ChunkRenderWorkerMixin",
 
     "client.MinecraftClientMixin",
     "client.KeyboardMixin",
