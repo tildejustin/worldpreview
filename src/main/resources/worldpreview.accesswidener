@@ -1,3 +1,11 @@
-accessWidener   v1      named
-accessible    class    net/minecraft/client/world/ClientChunkManager$ClientChunkMap
-accessible    class    net/minecraft/client/render/WorldRenderer$ChunkInfo
+accessWidener v2 named
+accessible class net/minecraft/client/world/ClientChunkManager$ClientChunkMap
+accessible class net/minecraft/client/render/WorldRenderer$ChunkInfo
+accessible field net/minecraft/client/render/GameRenderer lightmapTextureManager Lnet/minecraft/client/render/LightmapTextureManager;
+accessible field net/minecraft/client/render/GameRenderer backgroundRenderer Lnet/minecraft/client/render/BackgroundRenderer;
+accessible field net/minecraft/client/render/WorldRenderer chunks Lnet/minecraft/client/render/BuiltChunkStorage;
+accessible method net/minecraft/client/render/BuiltChunkStorage getChunkRenderer (Lnet/minecraft/util/math/BlockPos;)Lnet/minecraft/client/render/chunk/ChunkRenderer;
+accessible field net/minecraft/client/render/WorldRenderer world Lnet/minecraft/client/world/ClientWorld;
+accessible field net/minecraft/client/render/WorldRenderer chunkInfos Ljava/util/List;
+accessible method net/minecraft/client/render/WorldRenderer$ChunkInfo <init> (Lnet/minecraft/client/render/WorldRenderer;Lnet/minecraft/client/render/chunk/ChunkRenderer;Lnet/minecraft/util/math/Direction;I)V
+accessible field net/minecraft/client/render/WorldRenderer chunkBuilder Lnet/minecraft/client/render/chunk/ChunkBuilder;
