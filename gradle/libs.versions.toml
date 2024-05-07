@@ -3,7 +3,7 @@ minecraft = "1.14.4"
 yarn_mappings = "1.14.4+build.18"
 fabric_loader = "0.15.6"
 loom = "1.5-SNAPSHOT"
-vineflower = "1.10.0-SNAPSHOT"
+vineflower = "1.10.1"
 state_output = "v1.1.5"
 
 [libraries]
