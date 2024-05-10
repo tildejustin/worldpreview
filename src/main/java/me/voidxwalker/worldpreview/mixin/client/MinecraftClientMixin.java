@@ -13,7 +13,7 @@ import net.minecraft.client.world.ClientWorld;
 import net.minecraft.resource.ReloadableResourceManager;
 import net.minecraft.resource.ResourceReloader;
 import net.minecraft.server.integrated.IntegratedServer;
-import net.minecraft.util.registry.RegistryTracker;
+import net.minecraft.util.registry.DynamicRegistryManager;
 import net.minecraft.world.gen.GeneratorOptions;
 import net.minecraft.world.level.LevelInfo;
 import net.minecraft.world.level.storage.LevelStorage;
@@ -96,11 +96,11 @@ public abstract class MinecraftClientMixin {
         WorldPreview.existingWorld=true;
     }
 
-    @Inject(method="method_29607", at = @At("HEAD"))
-    private void isExistingDemoWorld(String worldName, LevelInfo levelInfo, RegistryTracker.Modifiable registryTracker, GeneratorOptions generatorOptions, CallbackInfo ci) {
+    @Inject(method="createWorld", at = @At("HEAD"))
+    private void isExistingDemoWorld(String worldName, LevelInfo levelInfo, DynamicRegistryManager.Impl registryTracker, GeneratorOptions generatorOptions, CallbackInfo ci) {
         if (this.isDemo() && "Demo_World".equals(worldName)) {
             try (LevelStorage.Session demoSession = this.levelStorage.createSession("Demo_World")) {
-                if (demoSession.method_29584() != null) {
+                if (demoSession.getLevelSummary() != null) {
                     WorldPreview.existingWorld = true;
                 }
             } catch (IOException e) {
