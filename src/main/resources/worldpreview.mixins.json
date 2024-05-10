@@ -21,6 +21,7 @@
 
     "client.render.block.BlockModelRendererMixin",
     "client.render.block.BlockRenderManagerMixin",
+    "client.render.block.MobSpawnerBlockEntityRendererMixin",
     "client.render.ParticleManagerMixin",
 
     "client.render.chunk.BuiltChunkMixin",
