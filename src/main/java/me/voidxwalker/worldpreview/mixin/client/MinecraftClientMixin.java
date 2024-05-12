@@ -31,6 +31,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import java.io.IOException;
 import java.util.concurrent.locks.LockSupport;
 
 @Mixin(MinecraftClient.class)
@@ -53,6 +54,10 @@ public abstract class MinecraftClientMixin {
     @Shadow @Final public WorldRenderer worldRenderer;
     @Shadow @Final private BufferBuilderStorage bufferBuilders;
     @Shadow @Nullable public Screen currentScreen;
+
+    @Shadow public abstract boolean isDemo();
+
+    @Shadow @Final private LevelStorage levelStorage;
     private int worldpreview_cycleCooldown;
 
     @Inject(method = "startIntegratedServer",at=@At(value = "INVOKE",shift = At.Shift.AFTER,target = "Lnet/minecraft/server/integrated/IntegratedServer;isLoading()Z"),cancellable = true)
@@ -91,6 +96,16 @@ public abstract class MinecraftClientMixin {
     public void isExistingWorld(String name, String displayName, LevelInfo levelInfo, CallbackInfo ci){
         WorldPreview.existingWorld=this.getLevelStorage().levelExists(name);
     }
+
+    @Inject(method="startIntegratedServer", at = @At("HEAD"))
+    private void isExistingDemoWorld(String name, String displayName, LevelInfo levelInfo, CallbackInfo ci) {
+        if (this.isDemo() && "Demo_World".equals(name)) {
+            if (this.levelStorage.levelExists("Demo_World")) {
+                WorldPreview.existingWorld = true;
+            }
+        }
+    }
+
     @Redirect(method="reset",at=@At(value="INVOKE",target="Lnet/minecraft/client/MinecraftClient;openScreen(Lnet/minecraft/client/gui/screen/Screen;)V"))
     public void worldpreview_smoothTransition(MinecraftClient instance, Screen screen){
         if(this.currentScreen instanceof LevelLoadingScreen &&  ((WorldRendererMixin)WorldPreview.worldRenderer).getWorld()!=null&&WorldPreview.world!=null&& WorldPreview.clientWord!=null&&WorldPreview.player!=null){
