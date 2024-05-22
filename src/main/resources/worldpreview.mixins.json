@@ -14,9 +14,13 @@
     "access.ChunkInfoMixin",
     "access.KeyBindingMixin",
     "access.WorldRendererMixin",
+    "access.VersionedChunkStorageMixin",
+    "access.SerializingRegionBasedStorageMixin",
+    "access.MinecraftClientMixin",
 
     "client.render.block.BlockModelRendererMixin",
     "client.render.block.BlockRenderManagerMixin",
+    "client.render.block.MobSpawnerBlockEntityRendererMixin",
     "client.render.chunk.ChunkBuilderMixin",
     "client.render.chunk.BuiltChunkMixin",
     "client.render.LevelLoadingScreenMixin",
@@ -29,7 +33,11 @@
 
     "server.MinecraftServerMixin",
     "server.ServerChunkManagerMixin",
-    "server.ServerPlayerEntityMixin"
+    "server.ServerPlayerEntityMixin",
+    "server.LevelStorage$SessionMixin",
+
+    "server.shutdown.StorageIOWorkerMixin",
+    "server.shutdown.ThreadedAnvilChunkStorageMixin"
   ],
   "injectors": {
     "defaultRequire": 1

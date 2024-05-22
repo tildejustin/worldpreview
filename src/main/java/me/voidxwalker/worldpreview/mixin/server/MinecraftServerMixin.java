@@ -1,6 +1,8 @@
 package me.voidxwalker.worldpreview.mixin.server;
 
+import me.voidxwalker.worldpreview.IFastCloseable;
 import me.voidxwalker.worldpreview.WorldPreview;
+import me.voidxwalker.worldpreview.mixin.access.MinecraftClientMixin;
 import me.voidxwalker.worldpreview.mixin.access.SpawnLocatingMixin;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.LevelLoadingScreen;
@@ -36,6 +38,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.Random;
+import java.util.concurrent.locks.LockSupport;
 import java.util.function.Supplier;
 
 @Mixin(MinecraftServer.class)
@@ -57,6 +60,8 @@ public abstract class   MinecraftServerMixin  extends ReentrantThreadExecutor<Se
     @Shadow @Final protected LevelStorage.Session session;
 
     @Shadow @Final private static Logger LOGGER;
+
+    @Shadow private volatile boolean running;
 
     @Shadow public abstract @Nullable ServerNetworkIo getNetworkIo();
 
@@ -132,6 +137,8 @@ public abstract class   MinecraftServerMixin  extends ReentrantThreadExecutor<Se
     @Inject(method="runServer",at=@At(value="INVOKE",target="Lnet/minecraft/server/MinecraftServer;setupServer()Z",shift = At.Shift.AFTER), cancellable = true)
     public void worldpreview_kill2(CallbackInfo ci){
         WorldPreview.inPreview=false;
+        WorldPreview.renderingPreview=false;
+        LockSupport.unpark(((MinecraftClientMixin)MinecraftClient.getInstance()).invokeGetThread());
         if(WorldPreview.kill==1){
             ci.cancel();
         }
@@ -155,7 +162,7 @@ public abstract class   MinecraftServerMixin  extends ReentrantThreadExecutor<Se
             serverWorld2 = var2.next();
             if (serverWorld2 != null) {
                 try {
-                    serverWorld2.getChunkManager().threadedAnvilChunkStorage.close();
+                    ((IFastCloseable)serverWorld2.getChunkManager().threadedAnvilChunkStorage).fastClose();
                 }
                 catch (IOException ignored) {}
             }
@@ -175,6 +182,13 @@ public abstract class   MinecraftServerMixin  extends ReentrantThreadExecutor<Se
     public void worldpreview_kill(WorldGenerationProgressListener worldGenerationProgressListener, CallbackInfo ci){
         if(WorldPreview.kill==1){
            ci.cancel();
+        }
+    }
+
+    @Inject(method = "runServer", at = @At(value = "INVOKE", target = "Lnet/minecraft/server/MinecraftServer;setFavicon(Lnet/minecraft/server/ServerMetadata;)V", shift = At.Shift.AFTER))
+    private void worldpreview_cancelRunServer(CallbackInfo ci) {
+        if (!this.session.lock.isValid()) {
+            this.running = false;
         }
     }
 }

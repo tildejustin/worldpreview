@@ -30,8 +30,22 @@ There are 5 ways the player can interact with the preview:
 - Cycle Chunk Map, default button "h" (English keyboard): Cycle through the 4 positions of the chunk map
 - Freeze Preview, default button "j" (English keyboard): Freezes the preview (helps with CPU performance)
 
-## For Macro Makers
-The mod prints 3 different log lines:
+## For Macro Makers and Verifiers
+
+The **State File** is created while the game is running and can be found 
+in `.minecraft/wpstateout.txt`. The file contains a single line of text containing 
+information about the game's current state, and overwrites itself whenever the state
+changes. The following states will appear as lines in the file:
+- `waiting`
+- `inworld,paused`
+- `inworld,unpaused`
+- `inworld,gamescreenopen`
+- `title`
+- `generating,[percent]` (before preview starts)
+- `previewing,[percent]`
+
+**Extra logs**: In addition to the state file messages also appearing in the
+log files, the mod prints 3 log lines:
 - "Starting preview at (x, y, z)" at the start of the preview (Reset buttons unlocked)
 - "Leaving world generation" when leaving world generation (Reset buttons locked)
 - "Freezing Preview / Unfreezing Preview" when the freezing / unfreezing the preview 
@@ -40,5 +54,8 @@ You will not be able to reset after ~ when the chunk map reaches 100%. This is i
 ## Authors
 
 - [@Void_X_Walker](https://www.github.com/voidxwalker) (https://ko-fi.com/voidxwalker)
+- [DuncanRuns](https://www.github.com/DuncanRuns)
+- [jojoe77777](https://www.github.com/jojoe77777)
+- [pixfumy](https://www.github.com/pixfumy)
 
 
