@@ -1,8 +1,7 @@
 package me.voidxwalker.worldpreview.mixin.client.render;
 
 import com.mojang.blaze3d.platform.GlStateManager;
-import me.voidxwalker.worldpreview.PreviewRenderer;
-import me.voidxwalker.worldpreview.WorldPreview;
+import me.voidxwalker.worldpreview.*;
 
 import me.voidxwalker.worldpreview.mixin.access.MinecraftClientMixin;
 import me.voidxwalker.worldpreview.mixin.access.WorldRendererMixin;
@@ -14,7 +13,6 @@ import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.gui.DrawableHelper;
 import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.options.KeyBinding;
 import net.minecraft.client.render.*;
 import net.minecraft.client.resource.language.I18n;
 import net.minecraft.client.sound.PositionedSoundInstance;
@@ -98,6 +96,7 @@ public abstract class LoadingScreenRendererMixin {
             if (((WorldRendererMixin) WorldPreview.worldRenderer).getWorld() == null) {
                 WorldPreview.worldRenderer.setWorld(WorldPreview.clientWorld);
                 WorldPreview.log("Starting preview.");
+                StateOutputInterface.outputPreviewing();
                 frameCount = 0;
                 WorldPreview.canFreeze = true;
             }
@@ -128,7 +127,7 @@ public abstract class LoadingScreenRendererMixin {
                 GlStateManager.ortho(0.0D, window.getScaledWidth(), window.getScaledHeight(), 0.0D, 100.0D, 300.0D);
                 GlStateManager.matrixMode(5888);
                 GlStateManager.loadIdentity();
-                GlStateManager.translatef(0.0F, 0.0F, -200.0F);
+                GlStateManager.translate(0.0F, 0.0F, -200.0F);
                 GlStateManager.clear(256);
                 this.worldpreview_renderCenteredString(this.client.textRenderer, I18n.translate("menu.game"), width / 2, 40, 16777215);
                 this.worldpreview_renderMenuButtons(width, height, mouseX, mouseY);
@@ -140,7 +139,7 @@ public abstract class LoadingScreenRendererMixin {
                 GlStateManager.ortho(0.0D, window.getScaledWidth(), window.getScaledHeight(), 0.0D, 100.0D, 300.0D);
                 GlStateManager.matrixMode(5888);
                 GlStateManager.loadIdentity();
-                GlStateManager.translatef(0.0F, 0.0F, -200.0F);
+                GlStateManager.translate(0.0F, 0.0F, -200.0F);
                 Tessellator tessellator = Tessellator.getInstance();
                 BufferBuilder bufferBuilder = tessellator.getBuffer();
                 this.client.getTextureManager().bindTexture(DrawableHelper.OPTIONS_BACKGROUND_TEXTURE);
@@ -211,7 +210,7 @@ public abstract class LoadingScreenRendererMixin {
         GlStateManager.enableCull();
 
         this.client.profiler.swap("clear");
-        GlStateManager.viewPort(0, 0, this.client.width, this.client.height);
+        GlStateManager.viewport(0, 0, this.client.width, this.client.height);
         worldpreview_updateFog(tickDelta);
         GlStateManager.clear(16640);
         this.client.profiler.swap("camera");
@@ -408,7 +407,7 @@ public abstract class LoadingScreenRendererMixin {
         if (this.client.options.perspective > 0) {
             double h = (double)(4);
             if (this.client.options.field_955) {
-                GlStateManager.translatef(0.0F, 0.0F, (float)(-h));
+                GlStateManager.translate(0.0F, 0.0F, (float)(-h));
             } else {
                 float j = entity.yaw;
                 float k = entity.pitch;
@@ -437,25 +436,25 @@ public abstract class LoadingScreenRendererMixin {
                 }
 
                 if (this.client.options.perspective == 2) {
-                    GlStateManager.rotatef(180.0F, 0.0F, 1.0F, 0.0F);
+                    GlStateManager.rotate(180.0F, 0.0F, 1.0F, 0.0F);
                 }
 
-                GlStateManager.rotatef(entity.pitch - k, 1.0F, 0.0F, 0.0F);
-                GlStateManager.rotatef(entity.yaw - j, 0.0F, 1.0F, 0.0F);
-                GlStateManager.translatef(0.0F, 0.0F, (float)(-h));
-                GlStateManager.rotatef(j - entity.yaw, 0.0F, 1.0F, 0.0F);
-                GlStateManager.rotatef(k - entity.pitch, 1.0F, 0.0F, 0.0F);
+                GlStateManager.rotate(entity.pitch - k, 1.0F, 0.0F, 0.0F);
+                GlStateManager.rotate(entity.yaw - j, 0.0F, 1.0F, 0.0F);
+                GlStateManager.translate(0.0F, 0.0F, (float)(-h));
+                GlStateManager.rotate(j - entity.yaw, 0.0F, 1.0F, 0.0F);
+                GlStateManager.rotate(k - entity.pitch, 1.0F, 0.0F, 0.0F);
             }
         } else {
-            GlStateManager.translatef(0.0F, 0.0F, -0.1F);
+            GlStateManager.translate(0.0F, 0.0F, -0.1F);
         }
 
         if (!this.client.options.field_955) {
-            GlStateManager.rotatef(entity.prevPitch + (entity.pitch - entity.prevPitch) * tickDelta, 1.0F, 0.0F, 0.0F);
-            GlStateManager.rotatef(entity.prevYaw + (entity.yaw - entity.prevYaw) * tickDelta + 180.0F, 0.0F, 1.0F, 0.0F);
+            GlStateManager.rotate(entity.prevPitch + (entity.pitch - entity.prevPitch) * tickDelta, 1.0F, 0.0F, 0.0F);
+            GlStateManager.rotate(entity.prevYaw + (entity.yaw - entity.prevYaw) * tickDelta + 180.0F, 0.0F, 1.0F, 0.0F);
         }
 
-        GlStateManager.translatef(0.0F, -f, 0.0F);
+        GlStateManager.translate(0.0F, -f, 0.0F);
 
 
     }    private float fogRed;
@@ -497,7 +496,7 @@ public abstract class LoadingScreenRendererMixin {
         Entity entity = this.client.getCameraEntity();
         GL11.glFog(2918, (FloatBuffer)this.worldpreview_updateFogColorBuffer(this.fogRed, this.fogGreen, this.fogBlue, 1.0F));
         GL11.glNormal3f(0.0F, -1.0F, 0.0F);
-        GlStateManager.color4f(1.0F, 1.0F, 1.0F, 1.0F);
+        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
         Block block = Camera.getSubmergedBlock(WorldPreview.clientWorld, entity, tickDelta);
         float g;
         if (block.getMaterial() == Material.WATER) {
@@ -537,7 +536,7 @@ public abstract class LoadingScreenRendererMixin {
             int buttonWidth = button.getWidth();
             int buttonHeight = 20;
             this.client.getTextureManager().bindTexture(new Identifier("textures/gui/widgets.png"));
-            GlStateManager.color4f(1.0F, 1.0F, 1.0F, 1.0F);
+            GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
             boolean hovered = mouseX >= button.x && mouseY >= button.y && mouseX < button.x + buttonWidth && mouseY < button.y + buttonHeight;
             int i = hovered ? 2 : 1;
             GlStateManager.enableBlend();

@@ -3,7 +3,7 @@ package me.voidxwalker.worldpreview;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.options.KeyBinding;
+import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.render.WorldRenderer;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.player.ClientPlayerEntity;
@@ -63,7 +63,7 @@ public class WorldPreview implements ClientModInitializer {
       }
       WorldPreview.clientWorld = null;
       WorldPreview.player = null;
-      KeyBinding.unpressAll();
+      KeyBinding.releaseAllKeys();
    }
 
    private static void loadOrCreateConfigFile() {
