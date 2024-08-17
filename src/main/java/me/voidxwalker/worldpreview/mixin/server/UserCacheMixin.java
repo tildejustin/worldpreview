@@ -16,7 +16,7 @@ import java.util.List;
 public class UserCacheMixin {
     private List globalList;
 
-    @Redirect(method = "load", at = @At(value = "INVOKE", target = "Lcom/google/gson/Gson;fromJson(Ljava/io/Reader;Ljava/lang/reflect/Type;)Ljava/lang/Object;"))
+    @Redirect(method = "load", at = @At(value = "INVOKE", target = "Lcom/google/gson/Gson;fromJson(Ljava/io/Reader;Ljava/lang/reflect/Type;)Ljava/lang/Object;", remap = false))
     private Object getGlobalList(Gson instance, Reader json, Type typeOfT) {
         List list = instance.fromJson(json, typeOfT);
         if (list != null && !list.isEmpty()) {

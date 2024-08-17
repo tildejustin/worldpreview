@@ -7,8 +7,8 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.TitleScreen;
 import net.minecraft.client.network.ClientPlayerInteractionManager;
-import net.minecraft.client.options.GameOptions;
-import net.minecraft.client.options.KeyBinding;
+import net.minecraft.client.option.GameOptions;
+import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.client.sound.SoundManager;
 import net.minecraft.client.world.ClientWorld;
@@ -46,7 +46,7 @@ public abstract class MinecraftClientMixin {
 
     @Shadow public ClientWorld world;
 
-    @Shadow public abstract void openScreen(Screen screen);
+    @Shadow public abstract void setScreen(Screen screen);
 
     @Shadow private boolean connectedToRealms;
 
@@ -89,7 +89,7 @@ public abstract class MinecraftClientMixin {
             this.connect((ClientWorld) null);
             if (WorldPreview.HAS_ATUM) {
                 AtumInterface.atumReset();
-                MinecraftClient.getInstance().openScreen(new TitleScreen());
+                MinecraftClient.getInstance().setScreen(new TitleScreen());
             }
             ci.cancel();
         } else if (Keyboard.isKeyDown(freezeKeyCode) && WorldPreview.inPreview && WorldPreview.loadedSpawn && WorldPreview.canFreeze && !WorldPreview.freezePreview) {

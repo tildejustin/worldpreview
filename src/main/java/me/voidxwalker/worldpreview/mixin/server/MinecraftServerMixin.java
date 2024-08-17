@@ -111,7 +111,7 @@ public abstract class MinecraftServerMixin {
 
     private void worldpreview_calculateSpawn(ServerWorld serverWorld) {
         BlockPos blockPos = WorldPreview.spawnPos;
-        if (!serverWorld.dimension.isNether() && serverWorld.getLevelProperties().getGameMode() != LevelInfo.GameMode.ADVENTURE) {
+        if (!serverWorld.dimension.hasNoSkylight() && serverWorld.getLevelProperties().getGameMode() != LevelInfo.GameMode.ADVENTURE) {
             int i = Math.max(5, this.getSpawnProtectionRadius() - 6);
             int j = MathHelper.floor(WorldPreview.world.getWorldBorder().getDistanceInsideBorder((double) blockPos.getX(), (double) blockPos.getZ()));
             if (j < i) {
@@ -195,7 +195,7 @@ public abstract class MinecraftServerMixin {
             calling serverWorlds.close() here is bad because it causes the server thread to wait for file IO threads to close.
              */
             if (this.snooper.isActive()) {
-                this.snooper.concel();
+                this.snooper.cancel();
             }
         }
         WorldPreview.inPreview=false;
